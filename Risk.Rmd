@@ -1,0 +1,148 @@
+---
+title: "Risk Analytics"
+output: html_document
+date: "2024-10-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages(c("tseries", "urca", "forecast", "nortest", "MASS"))
+library(tseries)
+library(urca)
+library(forecast)
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(nortest)
+library(MASS)
+```
+
+## Practical 1
+
+## Part 1: Financial returns and normality
+
+1.  **Read in the Bitcoin data from le Crypto data.csv. Then, assess the stationarity of the (raw) Bitcoin prices.**
+
+    ```{r echo=FALSE}
+    #Uploading the data set
+    crypto<-read.csv("Crypto_data.csv")
+
+    bitcoin_ts <- ts(crypto$Bitcoin, 
+                     start = c(1),       
+                     frequency = 1440)
+
+
+
+    plot(bitcoin_ts, type = "l", main = "Bitcoin Prices", xlab = "Time", col = "red")
+
+    # Plotting the Q-Q plot
+
+    qqnorm(bitcoin_ts, main = "Normal Q-Q Plot")
+    qqline(bitcoin_ts, col = "red")
+
+
+
+    ```
+
+    The plots show that the distribution of the data base is not normal and a clear trend over the years. However, it is needed to review it in detail. Let's check it out in more detail
+
+    ```{r}
+
+    # Plotting the cumulative periodogram
+    cpgram(bitcoin_ts, main = "Cumulative Periodogram")
+
+
+    ```
+
+    The cumulative periodogram shows clearly that the data base is not stationary as the observations are outside the confidence interval of white noise stationarity.
+
+    ```{r}
+    # Plotting the ACF and PACF
+    par(mfrow = c(2, 2))
+    acf(bitcoin_ts, main = "ACF Plot")
+    pacf(bitcoin_ts, main = "PACF Plot")
+    par(mfrow = c(1, 1))
+
+    ```
+
+    The no stationarty is confirmed by the PACF and ACF plots as they show clear patterns in both of them.
+
+    ```{r}
+    # KPSS Test
+    kpss_test <- ur.kpss(bitcoin_ts)
+    summary(kpss_test)
+    ```
+
+    Finally, the KPSS test suggests that we can rejec the Ho of stationarity concluding that the prices of the Bitcoin are not stationary.
+
+2.  **Create a function to transform the Bitcoin prices into their negative log returns counterparts. Plot the latter series and assess their stationarity. To compare the series, also plot the negative log returns on a common scale.**
+
+    ```{r}
+    bitcoin_log_returns <- diff(log(bitcoin_ts))
+    plot(bitcoin_log_returns, type = "l", main = "Negative Log Returns of Bitcoin Prices", 
+         ylab = "Negative Log Returns", xlab = "Time", col = "blue")
+    ```
+
+    This graph suggest us that the negative logaritmic returns are more similar to a stationary data base than the original one.
+
+    ```{r}
+    plot(bitcoin_ts, type = "l", col = "red", lwd = 2, 
+         main = "Bitcoin Prices and Negative Log Returns", 
+         ylab = "Bitcoin Prices", xlab = "Time")
+
+    # Add the second series (negative log returns) on a secondary axis
+    par(new = TRUE)
+    plot(bitcoin_log_returns, type = "l", col = "blue", lwd = 2, axes = FALSE, 
+         xlab = "", ylab = "")
+    axis(side = 4) # Add axis on the right side
+    mtext("Negative Log Returns", side = 4, line = 3) # Label for the secondary axis
+
+    # Add a legend
+    legend("topright", legend = c("Bitcoin Prices", "Negative Log Returns"), 
+           col = c("red", "blue"), lty = 1, lwd = 2)
+    ```
+
+    When we plot it together, it is easy to see how the logaritmic data set is closer to what we can call stationarity.
+
+3.  **Are the negative log returns normally distributed? Draw histograms, check QQ-plots and use an Anderson-Darling testing procedure to answer this question.**
+
+    ```{r}
+    # Plot Histogram of negative log returns
+    hist(bitcoin_log_returns, breaks = 50, main = "Histogram of Negative Log Returns",
+         xlab = "Negative Log Returns", col = "lightblue", border = "black", probability = TRUE)
+
+
+    # QQ-Plot to check for normality
+    qqnorm(bitcoin_log_returns, main = "QQ-Plot of Negative Log Returns")
+    qqline(bitcoin_log_returns, col = "blue", lwd = 2)
+
+
+    ```
+
+    The histogram suggests a normal distributions while the QQplot shows some desviations at the tails that make us believe that there could be some problems with the distribution.
+
+    ```{r}
+    print(ad.test(bitcoin_log_returns))
+    ```
+
+    This test helps us to confirm our observation about the normal distribution. As the p value is lover than 5% we can reject the normality and confirm that the negative log returns are not normally distributed.
+
+4.  **Fit a t-distribution to the negative log returns using fitdistr(). Using a QQ-plot, decide whether the t is better than with a Normal distribution, based on your answer in (3).**
+
+    ```{r}
+    bitcoin_log_returns_nots <- crypto$Bitcoin[!is.nan(crypto$Bitcoin) & is.finite(crypto$Bitcoin)]
+
+    fit_t_dist <- fitdistr(bitcoin_log_returns_nots, "t")
+
+
+
+    qqnorm(fit_t_dist$vcov, main = "QQ-Plot of Negative Log t Returns")
+    qqline(fit_t_dist$vcov, col = "blue", lwd = 2)
+
+    ```
+
+5.  **Compare the tails of the densities of the t-distribution and the normal distribution. Can we expect more extreme, unexpected events in t-distribution or in normal distribution? What can you conclude about the extreme events of our bitcoin data?**
+
+## Part 2:
+
+## Part 3:
