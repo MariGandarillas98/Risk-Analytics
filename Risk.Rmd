@@ -7,6 +7,7 @@ date: "2024-10-01"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 install.packages(c("tseries", "urca", "forecast", "nortest", "MASS"))
+
 library(tseries)
 library(urca)
 library(forecast)
@@ -17,6 +18,20 @@ library(nortest)
 library(MASS)
 library(stats)    
 library(fGarch)
+library(ggplot2)
+library(dplyr)
+library(summarytools)
+library(readxl)
+library(visdat)
+library(DT)
+library(fpp3)
+library(tsibbledata)
+library(flextable)
+library(readxl)
+library(fable)
+library(here)
+library(forecast)
+library(lmtest)
 ```
 
 ## Practical 1
@@ -167,6 +182,7 @@ neg_log_returns <- -log_returns            # Negative log returns
 # Plot ACF of the negative log returns
 acf(neg_log_returns, main = "ACF of Negative Log Returns", lag.max = 50)
 ```
+
 The ACF of the raw Bitcoin price series shows high autocorrelation at multiple lags, indicating a strong positive, declining trend and non-stationarity. This suggests that the raw series exhibits significant dependencies and is harder to model. In contrast, the ACF of the negative log returns is mostly within the confidence intervals, suggesting little to no autocorrelation and a stationary series. Since the negative log returns exhibit less persistence and randomness, they are easier to model and more suitable for time series analysis compared to the raw Bitcoin prices.
 
 ```{r}
@@ -179,7 +195,6 @@ print(ljung_box_neg_log)
 ```
 
 Since the p-value is much smaller than 0.05, we reject the null hypothesis, indicating that there is significant autocorrelation in the raw Bitcoin price series. This confirms that the raw Bitcoin series is non-stationary and exhibits strong trends and patterns over time, as suggested by the ACF plot. Since the p-value is just below 0.05, we also reject the null hypothesis, suggesting weak serial dependence in the negative log returns, though the level of dependence is much weaker compared to the raw Bitcoin series. While the negative log returns series is closer to stationarity (as indicated by the ACF plot), there is still a slight level of autocorrelation present.
-
 
 ```{r}
 # Fit a manually proposed ARIMA model 
@@ -203,7 +218,6 @@ checkresiduals(auto_ARIMA_model)
 ```
 
 The auto ARIMA(2, 0, 2) model is likely preferred because it has a lower AIC value, suggesting a better balance between fit and complexity. The first model provides a simpler representation but may not capture the underlying dynamics as effectively as the second model. The stronger coefficients in the second model suggest it can explain the data with greater accuracy. We reject the null hypothesis of no autocorrelation in the residuals for manual ARIMA(1, 0, 1) model. This indicates that there is significant autocorrelation. The model may not adequately capture the time series dynamics, suggesting that it might be beneficial to consider a more complex model. For auto ARIMA(2, 0, 2) we accept the null hypothesis of no autocorrelation in the residuals. This indicates that the residuals from the ARIMA(2, 0, 2) model behave like white noise, suggesting that this model adequately captures the time series dynamics.
-
 
 ```{r}
 # Fit GARCH(1, 1) with normal distribution
@@ -245,7 +259,6 @@ acf(residuals_t, main = "ACF of Residuals (t-Distribution)")
 
 The GARCH(1, 1) model with standardized t-distribution appears to be the better fitting model for the negative log returns, given the log-likelihood, AIC, and the inclusion of a shape parameter. Both models exhibit significant coefficients for ( \omega ), ( \alpha\_1 ), and ( \beta\_1 ). Despite both models showing non-normality in residuals, they both adequately model the autocorrelation structure of the returns.
 
-
 ```{r}
 # Obtain the residuals from the ARIMA model
 arima_residuals <- residuals(auto_ARIMA_model)
@@ -271,4 +284,261 @@ The GARCH(1, 1) model on the residuals of the ARIMA(2, 0, 2) model indicates sig
 
 To compare the three models (ARIMA, GARCH, and ARIMA-GARCH) we consider various criteria such as model fit, statistical significance, and the homoscedasticity assumption. The ARIMA-GARCH model is the most suitable because it effectively captures both the mean and the variance of the negative log returns. It addresses the limitations of the ARIMA model alone, which may not handle volatility adequately, while also confirming the improvements in fit over the standalone GARCH model. The ARIMA model is where the homoscedasticity assumption is most likely violated, as it does not account for the changing variance inherent in financial time series data. In contrast, both the GARCH and ARIMA-GARCH models explicitly model volatility, thereby addressing this assumption.
 
-## Part 3:
+## Part 3:Dependenlibrary(forecast)ce between time series
+
+We would like to know the connection between the two most prominent nancial crypto-stock prices \| Bitcoin and Ethereum. Are they dependent? Are the extreme events between these time series connected?
+
+```{r}
+crypto <- readr::read_csv("C:/Users/Marcela/Documents/Documentos/3rd Semester/Risk analytics/Week 1/Crypto_data.csv")
+```
+
+```{r}
+head(crypto)
+```
+
+For this part, use also the Ethereum data (ETH). Compute the negative log returns of ETH.
+
+```{r}
+# Calculate log returns for Bitcoin and Ethereum (convert to numeric in case of any issues)
+crypto <- crypto %>%
+  mutate(Bitcoin = as.numeric(Bitcoin),
+         Ethereum = as.numeric(Ethereum),
+         Bitcoin_log_return = log(Bitcoin / lag(Bitcoin)),
+         Ethereum_log_return = log(Ethereum / lag(Ethereum)))
+
+# Calculate negative log returns for both Bitcoin and Ethereum
+crypto <- crypto %>%
+  mutate(Bitcoin_negative_log_return = -Bitcoin_log_return,
+         Ethereum_negative_log_return = -Ethereum_log_return)
+
+
+# Check the results
+head(crypto)
+```
+
+```{r}
+# Plot the log returns of Bitcoin and Ethereum
+plot(crypto$Bitcoin_log_return, type = "l", col = "blue", 
+     main = "Log Returns of Bitcoin and Ethereum", ylab = "Log Returns")
+lines(crypto$Ethereum_log_return, col = "red")
+legend("topright", legend = c("Bitcoin", "Ethereum"), col = c("blue", "red"), lty = 1)
+```
+
+(a) Are the negative log returns of Bitcoin and ETH dependent? Compute the correlation using cor.test() function. Can we conclude that these series are independent?
+
+```{r}
+# Check if the columns are numeric
+str(crypto)
+
+# Drop the first row with NA values from the log return calculations (due to lag)
+crypto <- na.omit(crypto) 
+
+# Check if there are any NA values remaining
+sum(is.na(crypto$Bitcoin_negative_log_return))  # Should return 0
+sum(is.na(crypto$Ethereum_negative_log_return))  # Should return 0
+
+# Perform the correlation test between Bitcoin and Ethereum negative log returns
+correlation_test <- cor.test(crypto$Bitcoin_negative_log_return, crypto$Ethereum_negative_log_return)
+
+# Print the results of the correlation test
+print(correlation_test)
+
+```
+
+1.  Correlation coefficient (cor):
+
+    -   The correlation coefficient is **-0.00315**, which is extremely close to **0**.
+
+    -   This suggests that there is **no significant correlation** between the **negative log returns** of Bitcoin and Ethereum. In other words, extreme negative movements in Bitcoin and Ethereum prices do not seem to be linearly related.
+
+2.  p-value:
+
+    -   The **p-value is 0.9**, which is much higher than the typical significance threshold (**0.05**).
+
+    -   This means that there is **insufficient evidence to reject the null hypothesis** that the correlation is zero (independence). Therefore, we cannot conclude that the negative returns of Bitcoin and Ethereum are correlated.
+
+3.  Confidence interval:
+
+    -   The 95% confidence interval for the correlation coefficient is **[-0.0548, 0.0485]**, which includes **0**, further confirming the **lack of a significant correlation.**
+
+Conclusion:
+
+Given the extremely low correlation coefficient, the high p-value, and the confidence interval that includes zero, there is no no significant linear relationship. This implies that negative extreme events in Bitcoin prices are not related to negative extreme events in Ethereum prices.
+
+(b) Calculate the cross-correlation function (CCF) between the negative log returns of Bitcoin and ETH. What do you observe?
+
+```{r}
+# Calculate the cross-correlation function (CCF) between Bitcoin and Ethereum negative log returns
+ccf_result <- ccf(crypto$Bitcoin_negative_log_return, crypto$Ethereum_negative_log_return, lag.max = 20, plot = TRUE)
+
+```
+
+X-axis (Lag):
+
+-   The **lag values** on the X-axis range from -20 to +20.
+
+-   A **negative lag** (to the left of 0) suggests that **Bitcoin’s negative log returns** might be leading Ethereum’s negative log returns (i.e., Bitcoin affects Ethereum after a delay).
+
+-   A **positive lag** (to the right of 0) suggests that **Ethereum’s negative log returns** might be leading Bitcoin’s negative log returns (i.e., Ethereum affects Bitcoin after a delay).
+
+Y-axis (ACF - Autocorrelation):
+
+-   The Y-axis shows the strength of the cross-correlation for each lag. Correlation values closer to **1** indicate a strong positive relationship, while values closer to **-1** indicate a strong negative relationship. Values around **0** suggest little to no correlation.
+
+Confidence intervals:
+
+-   The blue dashed lines represent the **confidence intervals** (typically 95%). If a cross-correlation value falls outside these bounds, it is considered **statistically significant**, meaning there is likely some dependence between the two series at that specific lag.
+
+-   Values within the dashed lines indicate **no significant correlation** at those lags.
+
+Conclusion:
+
+-   The CCF plot shows **no significant lead-lag relationship** between the negative log returns of Bitcoin and Ethereum. The only notable correlation occurs at **lag 0**, implying that the two assets' negative log returns are correlated when they happen **at the same time**, but there is no evidence of either asset consistently leading the other in terms of negative returns.
+
+-   This result is consistent with the Pearson correlation analysis.
+
+(c) Is one of the time series good predictor of the second? Assess whether there is any predictive power between the negative log returns of Bitcoin and ETH. You can use grangertest() in the lmtest package with carefully chosen hyperparameter order. What is your conclusion?
+
+```{r}
+# Fit ARIMA model to Bitcoin negative log returns and auto-select order based on AIC/BIC
+fit_btc <- auto.arima(crypto$Bitcoin_negative_log_return, ic = "aic")
+
+# Check the selected ARIMA order (p, d, q)
+summary(fit_btc)
+
+# Similarly, for Ethereum
+fit_eth <- auto.arima(crypto$Ethereum_negative_log_return, ic = "aic")
+
+# Check the selected ARIMA order for Ethereum
+summary(fit_eth)
+```
+
+**AR terms (p)** from the ARIMA models:
+
+-   Bitcoin: AR(2)
+
+-   Ethereum: AR(2)
+
+These values as a guideline for choosing the lag order in the **Granger causality test**.
+
+For instance:
+
+-   Use **2 lags** in the Granger test (as both Bitcoin and Ethereum seem to have strong autoregressive effects at lag 2).
+
+-   try testing with higher lag orders (e.g., 4 lags, especially for Ethereum since the MA terms are high) to see if the results differ.
+
+```{r}
+
+# Granger causality test with 2 lags based on ARIMA models
+granger_test_btc_to_eth <- grangertest(Ethereum_negative_log_return ~ Bitcoin_negative_log_return, order = 2, data = crypto)
+granger_test_eth_to_btc <- grangertest(Bitcoin_negative_log_return ~ Ethereum_negative_log_return, order = 2, data = crypto)
+
+# Print results
+print("Granger causality test: Bitcoin causing Ethereum")
+print(granger_test_btc_to_eth)
+
+print("Granger causality test: Ethereum causing Bitcoin")
+print(granger_test_eth_to_btc)
+```
+
+1.  **Bitcoin Causing Ethereum (Granger Test Results)**:
+
+    **Null Hypothesis**: Bitcoin's negative log returns **do not Granger cause** Ethereum's negative log returns.
+
+**p-value (Pr(\>F))**: The p-value is **0.062**, which is slightly above the typical significance level of **0.05**, but below **0.1**.
+
+Thus, **there is weak evidence** (at the 10% level) that **Bitcoin might have some predictive power** over Ethereum, but the evidence is not strong enough to be conclusive at the standard 5% level.
+
+2.  **Ethereum Causing Bitcoin (Granger Test Results)**:
+
+**Null Hypothesis**: Ethereum's negative log returns **do not Granger cause** Bitcoin's negative log returns.
+
+**p-value (Pr(\>F))**: The p-value is **0.53**, which is well above the common significance levels (0.05 or 0.1).
+
+-   Since the p-value is much higher than 0.05, you **fail to reject the null hypothesis**.
+
+-   This suggests that **Ethereum’s negative log returns do not have predictive power** over Bitcoin’s negative log returns.
+
+Conclusion:
+
+1.  **Bitcoin causing Ethereum**: There is **weak evidence** that Bitcoin's negative log returns might have some predictive power over Ethereum's negative log returns, as the p-value is **0.062** (which is slightly below 0.1 but above 0.05). At a **10% significance level**, Bitcoin as having **some predictive power** over Ethereum, but this result is not very strong or conclusive.
+
+2.  **Ethereum causing Bitcoin**: There is **no evidence** that Ethereum's negative log returns Granger cause Bitcoin's negative log returns, as the p-value is **0.53**, which is much higher than the standard significance levels of 0.05 and 0.1.
+
+```{r}
+# Granger Causality Test with 3 Lags
+granger_test_btc_to_eth_lag3 <- grangertest(Ethereum_negative_log_return ~ Bitcoin_negative_log_return, order = 3, data = crypto)
+granger_test_eth_to_btc_lag3 <- grangertest(Bitcoin_negative_log_return ~ Ethereum_negative_log_return, order = 3, data = crypto)
+
+# Print results for 3 lags
+print("Granger causality test (3 lags): Bitcoin causing Ethereum")
+print(granger_test_btc_to_eth_lag3)
+
+print("Granger causality test (3 lags): Ethereum causing Bitcoin")
+print(granger_test_eth_to_btc_lag3)
+
+# Granger Causality Test with 4 Lags
+granger_test_btc_to_eth_lag4 <- grangertest(Ethereum_negative_log_return ~ Bitcoin_negative_log_return, order = 4, data = crypto)
+granger_test_eth_to_btc_lag4 <- grangertest(Bitcoin_negative_log_return ~ Ethereum_negative_log_return, order = 4, data = crypto)
+
+# Print results for 4 lags
+print("Granger causality test (4 lags): Bitcoin causing Ethereum")
+print(granger_test_btc_to_eth_lag4)
+
+print("Granger causality test (4 lags): Ethereum causing Bitcoin")
+print(granger_test_eth_to_btc_lag4)
+```
+
+Granger Causality Test Results with Different Lags:
+
+Granger Causality Test (3 Lags):
+
+-   **Bitcoin causing Ethereum**:
+
+    -   **F-statistic = 5.13**, **p-value = 0.0016** (very significant, below 0.01).
+
+    -   Since the p-value is **less than 0.05**, we **reject the null hypothesis** and conclude that Bitcoin’s negative log returns **Granger cause** Ethereum’s negative log returns when using 3 lags.
+
+    -   This means that past values of Bitcoin's returns (up to 3 days) can predict Ethereum's returns with **strong evidence**.
+
+-   **Ethereum causing Bitcoin**:
+
+    -   **F-statistic = 0.46**, **p-value = 0.71** (far greater than 0.05).
+
+    -   Since the p-value is **greater than 0.05**, we **fail to reject the null hypothesis**, meaning that Ethereum's negative log returns do **not** Granger cause Bitcoin's negative log returns with 3 lags.
+
+**Granger Causality Test (4 Lags)**:
+
+-   **Bitcoin causing Ethereum**:
+
+    -   **F-statistic = 7.09**, **p-value = 1.2e-05** (extremely significant, much below 0.001).
+
+    -   With a very low p-value, we can **strongly reject the null hypothesis** and conclude that Bitcoin’s negative log returns **Granger cause** Ethereum’s negative log returns when using 4 lags.
+
+    -   The predictive power of Bitcoin on Ethereum is even **stronger** when using 4 lags compared to 3 lags.
+
+-   **Ethereum causing Bitcoin**:
+
+    -   **F-statistic = 0.54**, **p-value = 0.71** (again, far greater than 0.05).
+
+    -   As with the 3-lag test, we **fail to reject the null hypothesis**, meaning that Ethereum’s negative log returns do **not** Granger cause Bitcoin’s negative log returns with 4 lags.
+
+Conclusion:
+
+-   **Bitcoin's** past returns **have significant predictive** power over Ethereum's returns, and this relationship is stronger with a **4-lag model**.
+
+-   **Ethereum's** returns **do not have predictive power** over Bitcoin’s returns, based on the 2-lag, 3-lag and 4-lag tests.
+
+The evidence here strongly suggests a **unidirectional relationship** where **Bitcoin influences Ethereum**, but **Ethereum does not influence Bitcoin**.
+
+(d) Based on your answer in (c), answer the following questions:
+
+    1.  We observe an extreme sudden drop in Bitcoin stocks. What should we expect that will happen with ETH stocks?
+
+-   The Granger causality suggests that **Bitcoin’s past behavior influences Ethereum’s future performance**, so a significant negative movement in Bitcoin (such as a sudden drop) could lead to a **similar negative impact on Ethereum** over the next few days (based on the lag structure).
+
+-   The effect might not be immediate, but it could unfold over the subsequent few days, particularly within **3 to 4 days** after the drop in Bitcoin.
+
+2)  We observe an extreme sudden drop in ETH stocks. What should we expect that will happen with Bitcoin stocks?
+
+-   According to the Granger causality test, if there is an extreme sudden drop in Ethereum stocks, **we should not expect Bitcoin stocks to be directly influenced** by this drop, at least not in a predictable or systematic way based on the historical relationship between the two assets.
