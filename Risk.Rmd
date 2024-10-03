@@ -132,16 +132,25 @@ library(MASS)
     ```{r}
     bitcoin_log_returns_nots <- crypto$Bitcoin[!is.nan(crypto$Bitcoin) & is.finite(crypto$Bitcoin)]
 
-    fit_t_dist <- fitdistr(bitcoin_log_returns_nots, "t")
 
+    fit_t <- fitdistr(bitcoin_log_returns_nots, "t")
 
+    fit_t_dis<- (crypto$Bitcoin-fit_t$estimate[1])/fit_t$sd[1]
 
-    qqnorm(fit_t_dist$vcov, main = "QQ-Plot of Negative Log t Returns")
-    qqline(fit_t_dist$vcov, col = "blue", lwd = 2)
+    fit_t_dis_ts<-ts(fit_t_dis, 
+                     start = c(1),       
+                     frequency = 1440)
+
+    qqnorm(fit_t_dis_ts, main = "QQ-Plot of Negative Log t Returns")
+    qqline(fit_t_dis_ts, col = "blue", lwd = 2)
 
     ```
 
+    Comparing this chart with the normal distribution plot, we can say that the normal distribution was better than the t distribution as it is closer to the blue line.
+
 5.  **Compare the tails of the densities of the t-distribution and the normal distribution. Can we expect more extreme, unexpected events in t-distribution or in normal distribution? What can you conclude about the extreme events of our bitcoin data?**
+
+    Both tails deviate significantly from the blue line, indicating that Bitcoin is prone to extreme events. However, the t-distribution exhibits greater tail density compared to the normal distribution, suggesting that the t-distribution allows for a higher likelihood of unexpected, extreme events.
 
 ## Part 2:
 
