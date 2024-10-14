@@ -1,0 +1,231 @@
+---
+title: "Practical 2"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-10-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(POT)
+library(extRemes)
+library(dplyr)
+```
+
+## Part 2
+
+```{r}
+rain_df <- read.csv("Precipitation_lausanne_full.csv")
+```
+
+#### a) Display a time series plot of the daily precipitation across the data range
+
+```{r}
+# Convert 'Date' column to Date type
+rain_df$Date <- as.Date(rain_df$Date, format="%m/%d/%Y")
+
+# Plot time series of daily precipitation
+ggplot(rain_df, aes(x = Date, y = Precipitation)) +
+  geom_line(color = "blue") +
+  labs(title = "Daily Precipitation in Lausanne",
+       x = "Date",
+       y = "Precipitation (mm)") +
+  theme_minimal()
+```
+
+#### b) We want to model the high precipitation levels using the POT approach. First step is choosing a threshold. Draw Mean Residual Life Plot (for example using mrlplot in POT library) for the full range of your data. Choose a reasonable threshold. In the plot from part a) highlight the data that exceeds this threshold.
+
+```{r}
+# Mean Residual Life Plot to choose a threshold
+mrlplot(rain_df$Precipitation, main = "Mean Residual Life Plot for Precipitation Data")
+```
+
+Between 20 and 40, the plot is relatively stable, with no strong upwards or downwards trend, and the mean excess remains quite constant. In the region around 45-50, the mean excess shows larger fluctuations and the graph starts to act more erratic. Therefore, we choose 40 as the threshold value.
+
+```{r}
+# Based on the plot, choose a reasonable threshold
+threshold <- 40
+
+# Highlight data exceeding the threshold on the time series plot
+rain_df$ExceedsThreshold <- ifelse(rain_df$Precipitation > threshold, "Above Threshold", "Below Threshold")
+
+ggplot(rain_df, aes(x = Date, y = Precipitation)) +
+  geom_line(color = "blue") +
+  geom_point(aes(color = ExceedsThreshold), size = 1.5) +
+  scale_color_manual(values = c("Above Threshold" = "red", "Below Threshold" = "blue")) +
+  labs(title = "Precipitation with Highlighted Exceedances",
+       x = "Date",
+       y = "Precipitation (mm)") +
+  theme_minimal()
+
+```
+
+#### c) it a GPD for the data exceeding the threshold and draw a diagnostic plot. Is it a reasonable fit? (Hint: if not, you may reconsider the choice of the threshold)
+
+```{r}
+# Fit a GPD to the data exceeding the threshold
+exceedances <- rain_df$Precipitation[rain_df$Precipitation > threshold]
+fit <- fitgpd(exceedances, threshold)
+
+# Diagnostic plots to assess the fit
+par(mfrow = c(2, 2))
+plot(fit, npy = 1)
+```
+
+With a threshold value of 40, we get the following diagnostic for our model:
+
+-   Probability plot: while our model tends to slightly overestimate low values (below 0.4), it seems overall reliable.
+
+-   QQ-Plot: the fit is generally good. However, we notice an extreme value in the upper tail that is not properly captured by the model. Depending on the application, this could be an issue.
+
+-   Density Plot: despite some slight variation, our fitted values align generally well with the model.
+
+-   Return Level Plot: despite some slight variation in the 20-50 years period, the fit is generally good.
+
+
+#### d) Using the fitted model, compute the 10-year, 20-year, 50-year and 85-year return levels.
+
+```{r}
+# Fit the GPD using the extRemes package
+fit_extremes <- fevd(rain_df$Precipitation, threshold = threshold, type = "GP")
+
+# Return periods for 10, 20, 50, and 85 years
+return_periods <- c(10, 20, 50, 85)
+
+# Calculate return levels for these return periods
+return_levels <- return.level(fit_extremes, return.period = return_periods)
+
+# Print return levels
+print(return_levels)
+```
+
+#### e) Using the fitted model, compute the return period of 100 mm of precipitation.
+
+```{r}
+# Extract parameters from the fitted GPD model using extRemes
+shape <- fit_extremes$results$par["shape"]
+scale <- fit_extremes$results$par["scale"]
+threshold <- fit_extremes$threshold
+
+# Define the precipitation level we are interested in
+precipitation_level <- 100
+
+# Calculate the return period using the general formula
+return_period_100mm <- 1 / ((1 / 365) * (1 + shape * ((precipitation_level - threshold) / scale))^(-1/shape))
+
+# Convert the return period from days to years
+return_period_years <- return_period_100mm / 365
+print(paste0(">100mm rain every ", return_period_years, " years"))
+```
+
+#### f) Using the fitted model, compute the probability that there will be a day in the next year when the precipitation exceeds 150 mm.
+
+```{r}
+# Define the precipitation level we are interested in (150 mm)
+precipitation_level_150 <- 150
+
+# Calculate the probability of exceeding 150 mm in the next year
+prob_150mm <- 1 - pgpd(precipitation_level_150 - threshold, scale = scale, shape = shape)
+
+# Print the probability
+print(paste0("Probability that there is a day with >150mm rain next year is ", prob_150mm, ", (= 0.007%)."))
+```
+
+#### g) Compare the results with the block maxima method. Explain the drawbacks and advantages of using the POT approach compared to the block maxima method. Which method do you prefer?
+
+```{r}
+
+```
+
+## Part 3
+
+#### a) Upload the Geneva temperature data. Plot the data. Subset the data for the summer months (June to September).
+
+```{r}
+temp_df <- read.csv("Geneva_temperature.csv")
+```
+
+```{r}
+# Convert the data types if necessary (ensuring 'Year', 'Month', and 'Day' are numeric)
+temp_df$Date <- as.Date(with(temp_df, paste(Year, Month, Day, sep = "-")), "%Y-%m-%d")
+
+# Plot the full time series of daily average temperatures in Geneva
+ggplot(temp_df, aes(x = Date, y = AvgTemperature)) +
+  geom_line(color = "dark blue") +
+  labs(title = "Daily Average Temperature in Geneva",
+       x = "Date",
+       y = "Average Temperature (°C)") +
+  theme_minimal()
+
+```
+```{r}
+# Subset the data for summer months (June to September)
+summer_df <- temp_df %>% filter(Month >= 6 & Month <= 9)
+
+ggplot(summer_df, aes(x = Date, y = AvgTemperature)) +
+  geom_line(colour = "Orange") + 
+  labs(title = "Daily Average Temperature in Geneva, Summer",
+       x = "Date",
+       y = "Average Temperature (°C)") +
+  theme_minimal()
+```
+
+
+#### b) Compute the extremal index of the subsetted series with appropriatelly chosen threshold (for example, you can use extremalindex function in extRemes package). Do the extremes occur in clusters? What is the probability that if the temperature today is extreme (above the chosen threshold) then tomorrow will be also extreme?
+
+```{r}
+# Choose an appropriate threshold for extreme temperature
+threshold_temp <- 20
+
+# Compute the extremal index for the subsetted summer data
+extremal_index_result <- extremalindex(summer_df$AvgTemperature, threshold_temp)
+
+# Print the extremal index
+extremal_index_result
+```
+With a threshold of 20 degrees Celcius, our extremal index is close to 0 (0.15), indicating that extreme temperature  tend to happen in blocks (clusters). 
+
+With a threshold of 25 degrees Celcius, our extremal index is still low (0,27), further proving that extreme temperatures (>25 C) happen in clusters. This can be illustrated for example by heatwaves in Summer.
+
+
+#### c) Decluster the data using a suitable threshold. Plot the resulting declustered data. (Hint: you may want to use decluster function in the extRemes package.)
+
+```{r}
+# Decluster the summer temperature data based on the chosen threshold
+declustered_data <- decluster(summer_df$AvgTemperature, threshold = threshold_temp)
+
+# Convert declustered data back into a data frame with corresponding dates for plotting
+declustered_df <- data.frame(Date = summer_df$Date, AvgTemperature = declustered_data)
+
+# Plot the declustered data
+ggplot(declustered_df, aes(x = Date, y = AvgTemperature)) +
+  geom_line(color = "green") +
+  labs(title = "Declustered Summer Temperatures in Geneva",
+       x = "Date",
+       y = "Declustered Temperature (°C)") +
+  theme_minimal()
+```
+
+#### d) Fit a Generalized Pareto Distribution (GPD) to the data, both raw and declustered. Compare the models and compute 10-year return level.
+
+```{r}
+# Fit a GPD to the raw summer temperature data using extRemes
+fit_gpd_raw <- fevd(summer_df$AvgTemperature, threshold = threshold_temp, type = "GP")
+
+# Fit a GPD to the declustered summer temperature data using extRemes
+fit_gpd_declust <- fevd(declustered_df$AvgTemperature, threshold = threshold_temp, type = "GP")
+
+# Calculate the 10-year return level for both models
+return_level_raw <- return.level(fit_gpd_raw, return.period = 10)
+return_level_declust <- return.level(fit_gpd_declust, return.period = 10)
+
+# Print the return levels
+print(return_level_raw)
+print(return_level_declust)
+```
+The raw summer data return level for 10-years is 29.23 degrees Celcius. It means that on average, the temperature of 29.23 C will be exceeded on average every 10 years.
+
+Without clustering of extreme events (the declustered data), the 10-years return level is 29.16 degrees Celcius. This is very close to the raw data and indicates that the clustering of extreme values does not have a significant impact on the 10-years return level.
