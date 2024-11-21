@@ -10,7 +10,242 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Data Pre-processing
 
+#####
+```{r, message =FALSE}
+library("xts")
+library("quantmod")
+```
+
+
 ```{r}
-raw_data <- read.csv()
+raw_data <- read.csv("INDEX_US_XNAS_COMP.csv")
+
+# Prepare for time-series
+raw_data$Date <- as.Date(raw_data$Date, format = "%m/%d/%Y")
+raw_data$Open <- as.numeric(gsub(",", "", raw_data$Open))
+raw_data <- raw_data[order(raw_data$Date), ]
+
+# Computing the daily returns
+raw_data$Return <- c(NA, diff(raw_data$Open) / head(raw_data$Open, -1) * 100)
+raw_data <- raw_data[-1, ]
+
+# Check if any missing values
+print(paste0("NAs in column : ",colSums(is.na(raw_data))))
+
+# Time-Series of Nasdaq
+nasdaq_ts <- ts(raw_data$Open, 
+              start = c(as.numeric(format(min(raw_data$Date), "%Y")), 
+                        as.numeric(format(min(raw_data$Date), "%j"))),
+              frequency = 365) # Daily data
+
+open_xts <- xts(raw_data$Open, order.by = raw_data$Date)
+```
+
+
+#### Plot the time-series
+```{r}
+plot(nasdaq_ts, main = "Open Prices Time Series", ylab = "Open Price", xlab = "Time")
+print(summary(nasdaq_ts))
+
+```
+
+#### Computing the daily returns
+```{r}
+summary(raw_data$Return)
+
+# Plot daily returns
+plot(raw_data$Date, raw_data$Return, type = "l", 
+     main = "Daily Returns", xlab = "Date", ylab = "Daily Return (%)")
+```
+
+## Value at Risk (VaR)
+
+```{r}
+# Set confidence levels
+confidence_levels <- c(0.95, 0.99)
+
+# Historical VaR calculation
+historical_var <- sapply(confidence_levels, function(cl) {
+  quantile(raw_data$Return, probs = 1 - cl, na.rm = TRUE)
+})
+
+# Display historical VaR
+names(historical_var) <- paste0(confidence_levels * 100, "%")
+print(historical_var)
+```
+
+```{r}
+# Calculate mean and standard deviation of returns
+mean_return <- mean(raw_data$Return, na.rm = TRUE)
+sd_return <- sd(raw_data$Return, na.rm = TRUE)
+
+# Parametric VaR calculation
+z_scores <- qnorm(confidence_levels)
+parametric_var <- -(z_scores * sd_return + mean_return)
+
+# Display parametric VaR
+names(parametric_var) <- paste0(confidence_levels * 100, "%")
+print(parametric_var)
+```
+
+```{r}
+# Plot daily returns
+plot(raw_data$Date, raw_data$Return, type = "l", col = "blue",
+     main = "Daily Returns and VaR Levels",
+     xlab = "Date", ylab = "Daily Return (%)")
+
+# Add horizontal lines for VaR levels
+abline(h = historical_var[1], col = "red", lty = 2)  # Historical 95%
+abline(h = historical_var[2], col = "red", lty = 3)  # Historical 99%
+abline(h = parametric_var[1], col = "green", lty = 2)  # Parametric 95%
+abline(h = parametric_var[2], col = "green", lty = 3)  # Parametric 99%
+
+# Add a legend
+legend("topright", legend = c("Hist VaR 95%", "Hist VaR 99%", 
+                              "Param VaR 95%", "Param VaR 99%"),
+       col = c("red", "red", "green", "green"), 
+       lty = c(2, 3, 2, 3))
+
+```
+
+#### Monthly Var
+
+```{r}
+daily_xts <- xts(raw_data$Return, order.by = raw_data$Date)
+# Compute monthly returns
+monthly_xts <- apply.monthly(daily_xts, function(x) prod(1 + x / 100, na.rm = TRUE) - 1)
+
+# Compute yearly returns
+yearly_xts <- apply.yearly(daily_xts, function(x) prod(1 + x / 100, na.rm = TRUE) - 1)
+
+# Convert back to numeric for VaR calculation
+monthly_returns <- as.numeric(monthly_xts) * 100
+yearly_returns <- as.numeric(yearly_xts) * 100
+
+# Historical VaR for monthly returns
+monthly_historical_var <- sapply(confidence_levels, function(cl) {
+  quantile(monthly_returns, probs = 1 - cl, na.rm = TRUE)
+})
+names(monthly_historical_var) <- paste0(confidence_levels * 100, "%")
+print("Monthly Historical VaR:")
+print(monthly_historical_var)
+
+# Mean and standard deviation for monthly returns
+monthly_mean <- mean(monthly_returns, na.rm = TRUE)
+monthly_sd <- sd(monthly_returns, na.rm = TRUE)
+
+# Parametric VaR for monthly returns
+monthly_parametric_var <- -(z_scores * monthly_sd + monthly_mean)
+names(monthly_parametric_var) <- paste0(confidence_levels * 100, "%")
+print("Monthly Parametric VaR:")
+print(monthly_parametric_var)
+
+plot(index(monthly_xts), monthly_returns, type = "l", col = "blue",
+     main = "Monthly Returns and VaR Levels",
+     xlab = "Date", ylab = "Monthly Return (%)")
+abline(h = monthly_historical_var[1], col = "red", lty = 2)
+abline(h = monthly_historical_var[2], col = "red", lty = 3)
+abline(h = monthly_parametric_var[1], col = "green", lty = 2)
+abline(h = monthly_parametric_var[2], col = "green", lty = 3)
+legend("topright", legend = c("Hist VaR 95%", "Hist VaR 99%",
+                              "Param VaR 95%", "Param VaR 99%"),
+       col = c("red", "red", "green", "green"), lty = c(2, 3, 2, 3))
+```
+
+#### Yearly VaR
+
+```{r}
+# Historical VaR for yearly returns
+yearly_historical_var <- sapply(confidence_levels, function(cl) {
+  quantile(yearly_returns, probs = 1 - cl, na.rm = TRUE)
+})
+names(yearly_historical_var) <- paste0(confidence_levels * 100, "%")
+print("Yearly Historical VaR:")
+print(yearly_historical_var)
+
+# Mean and standard deviation for yearly returns
+yearly_mean <- mean(yearly_returns, na.rm = TRUE)
+yearly_sd <- sd(yearly_returns, na.rm = TRUE)
+
+# Parametric VaR for yearly returns
+yearly_parametric_var <- -(z_scores * yearly_sd + yearly_mean)
+names(yearly_parametric_var) <- paste0(confidence_levels * 100, "%")
+print("Yearly Parametric VaR:")
+print(yearly_parametric_var)
+
+
+plot(index(yearly_xts), yearly_returns, type = "l", col = "blue",
+     main = "Yearly Returns and VaR Levels",
+     xlab = "Date", ylab = "Yearly Return (%)")
+abline(h = yearly_historical_var[1], col = "red", lty = 2)
+abline(h = yearly_historical_var[2], col = "red", lty = 3)
+abline(h = yearly_parametric_var[1], col = "green", lty = 2)
+abline(h = yearly_parametric_var[2], col = "green", lty = 3)
+legend("topright", legend = c("Hist VaR 95%", "Hist VaR 99%",
+                              "Param VaR 95%", "Param VaR 99%"),
+       col = c("red", "red", "green", "green"), lty = c(2, 3, 2, 3))
+
+```
+
+## Expected shortfall
+```{r}
+# Historical ES calculation
+historical_es <- sapply(confidence_levels, function(cl) {
+  vaR_threshold <- quantile(raw_data$Return, probs = 1 - cl, na.rm = TRUE)
+  mean(raw_data$Return[raw_data$Return <= vaR_threshold], na.rm = TRUE)
+})
+
+# Assign confidence levels to names
+names(historical_es) <- paste0(confidence_levels * 100, "%")
+
+print("Historical Expected Shortfall (ES):")
+print(historical_es)
+
+```
+
+```{r}
+# Parametric ES calculation
+parametric_es <- sapply(confidence_levels, function(cl) {
+  z <- qnorm(cl)
+  phi <- dnorm(z)
+  es <- -(mean_return - sd_return * (phi / (1 - cl)))
+  es
+})
+
+# Assign confidence levels to names
+names(parametric_es) <- paste0(confidence_levels * 100, "%")
+
+print("Parametric Expected Shortfall (ES):")
+print(parametric_es)
+
+```
+
+```{r}
+# Combine VaR and ES into a data frame for comparison
+comparison <- data.frame(
+  Confidence_Level = paste0(confidence_levels * 100, "%"),
+  Historical_VaR = historical_var,
+  Historical_ES = historical_es,
+  Parametric_VaR = parametric_var,
+  Parametric_ES = parametric_es
+)
+
+print("Comparison of VaR and ES:")
+print(comparison)
+
+```
+```{r}
+# Ensure correct structure for barplot
+barplot(
+  height = t(as.matrix(comparison[, -1])), # Transpose for proper grouping
+  beside = TRUE, 
+  main = "Comparison of VaR and ES",
+  names.arg = comparison$Confidence_Level, # Use Confidence Levels as labels
+  col = c("red", "darkred", "green", "darkgreen"),
+  legend.text = c("Hist VaR", "Hist ES", "Param VaR", "Param ES"),
+  ylab = "Return (%)",
+  args.legend = list(x = "topright", bty = "n") # Ensure legend displays correctly
+)
+
 ```
 
