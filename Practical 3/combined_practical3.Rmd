@@ -16,6 +16,8 @@ library("xts")
 library("quantmod")
 library(ggplot2)
 library(dplyr)
+library(tseries)
+library(PerformanceAnalytics)
 ```
 
 
@@ -106,10 +108,12 @@ The daily returns are not normally distributed. Therefore, using parametric Valu
 confidence_levels <- c(0.95, 0.99)
 
 # Historical VaR calculation
-for (cl in confidence_levels) {
-  var_level <- quantile(raw_data$Return, probs = 1 - cl)
-  cat(sprintf("Historical VaR at %.0f%% confidence level: %.2f%%\n", cl * 100, var_level))
+historical_var <- numeric(length(confidence_levels))
+for (i in seq_along(confidence_levels)) {
+  cl <- confidence_levels[i]
+  historical_var[i] <- quantile(raw_data$Return, probs = 1 - cl)
 }
+
 
 ```
 
@@ -120,6 +124,7 @@ The Historical VaR values indicate that, with 95% confidence, the worst expected
 
 
 ```{r}
+
 
 # Visualize VaR levels against daily returns
 plot(raw_data$Date, raw_data$Return, type = "l", col = "#1CADE4", xlab = "Date", ylab = "Negative Log Returns (%)", main = "Negative Log Returns with VaR Levels")
@@ -132,62 +137,58 @@ legend("topright", legend = c("Negative Log Returns", "Historical VaR 95%", "His
 ```{r}
 # 5. Calculate Expected Shortfall (ES)
 # Historical ES calculation
-for (cl in confidence_levels) {
-  es_level <- mean(raw_data$Return[raw_data$Return <= quantile(raw_data$Return, probs = 1 - cl)])
-  cat(sprintf("Historical ES at %.0f%% confidence level: %.2f%%\n", cl * 100, es_level))
+historical_es <- numeric(length(confidence_levels))
+for (i in seq_along(confidence_levels)) {
+  cl <- confidence_levels[i]
+  historical_es[i] <- mean(raw_data$Return[raw_data$Return <= quantile(raw_data$Return, probs = 1 - cl)])
 }
 
 # Compare VaR and ES values
 cat("\nComparison of VaR and ES:\n")
 for (cl in confidence_levels) {
-  historical_var <- quantile(raw_data$Return, probs = 1 - cl)
-  historical_es <- mean(raw_data$Return[raw_data$Return <= historical_var])
+  h_var <- quantile(raw_data$Return, probs = 1 - cl)
+  h_es <- mean(raw_data$Return[raw_data$Return <= historical_var])
   cat(sprintf("At %.0f%% confidence level:\n", cl * 100))
-  cat(sprintf("  Historical VaR: %.2f%%, Historical ES: %.2f%%\n", historical_var, historical_es))
+  cat(sprintf("  Historical VaR: %.2f%%, Historical ES: %.2f%%\n", h_var, h_es))
 }
-
 ```
 We can interpret these results as:
   "When the daily returns are lower than -2.19% (-3.35%), it is expected to be -2.91% (-4.29%).
 
-
-
-The Historical Expected Shortfall (ES) values are -3.39% at the 95% confidence level and -4.78% at the 99% confidence level, indicating the average loss that occurs beyond the VaR threshold. The Parametric Expected Shortfall (ES) values are 2.86% at the 95% confidence level and 3.71% at the 99% confidence level, which are positive, reflecting a different outcome. The parametric method appears to indicate potential gains or less severe losses, as it assumes returns follow a normal distribution, which may not capture extreme losses as effectively as the historical approach. This disparity highlights the limitations of the parametric model in accurately estimating the true risk of extreme events.
 ```{r}
 # 5. Combine VaR and ES into a data frame for comparison
-comparison <- data.frame(
+
+levels <- data.frame(
   Confidence_Level = paste0(confidence_levels * 100, "%"),
   Historical_VaR = historical_var,
   Historical_ES = historical_es
 )
 
-print("Comparison of VaR and ES:")
-print(comparison)
-```
-In conclusion, the Historical method provides a more conservative and realistic measure of risk, especially in tail events, by incorporating real past data, while the Parametric method, based on the assumption of normality, tends to underestimate extreme risk. 
-```{r}
-# Ensure correct structure for barplot
-barplot(
-  height = t(as.matrix(comparison[, -1])), # Transpose for proper grouping
-  beside = TRUE, 
-  main = "Comparison of VaR and ES",
-  names.arg = comparison$Confidence_Level, # Use Confidence Levels as labels
-  col = c("red", "darkred", "green", "darkgreen"),
-  legend.text = c("Hist VaR", "Hist ES", "Param VaR", "Param ES"),
-  ylab = "Return (%)",
-  args.legend = list(x = "topright", bty = "n") # Ensure legend displays correctly
-)
+# Compare VaR and ES values
+cat("\nComparison of VaR and ES:\n")
+for (i in seq_along(confidence_levels)) {
+  cat(sprintf("At %.0f%% confidence level:\n", confidence_levels[i] * 100))
+  cat(sprintf("  Historical VaR: %.2f%%, Historical ES: %.2f%%\n", historical_var[i], historical_es[i]))
+}
 
+historical_var <- levels[,1:2]
+historical_es <- levels[,c(1,3)]
 ```
+
+
+The Historical Expected Shortfall (ES) values are -3.39% at the 95% confidence level and -4.78% at the 99% confidence level, indicating the average loss that occurs beyond the VaR threshold. The Parametric Expected Shortfall (ES) values are 2.86% at the 95% confidence level and 3.71% at the 99% confidence level, which are positive, reflecting a different outcome. The parametric method appears to indicate potential gains or less severe losses, as it assumes returns follow a normal distribution, which may not capture extreme losses as effectively as the historical approach. This disparity highlights the limitations of the parametric model in accurately estimating the true risk of extreme events.
+
+In conclusion, the Historical method provides a more conservative and realistic measure of risk, especially in tail events, by incorporating real past data, while the Parametric method, based on the assumption of normality, tends to underestimate extreme risk. 
+
 ## The Stop-Loss Strategy
 
 ### Count the Triggers
 ```{r}
 # Add VaR and ES thresholds to the data
-raw_data$VaR_95 <- historical_var["95%"]
-raw_data$VaR_99 <- historical_var["99%"]
-raw_data$ES_95 <- historical_es["95%"]
-raw_data$ES_99 <- historical_es["99%"]
+raw_data$VaR_95 <- historical_var[1,2]
+raw_data$VaR_99 <- historical_var[2,2]
+raw_data$ES_95 <- historical_es[1,2]
+raw_data$ES_99 <- historical_es[2,2]
 
 # Identify when stop-loss is triggered
 raw_data$Stop_Loss_95 <- raw_data$Return <= raw_data$VaR_95
