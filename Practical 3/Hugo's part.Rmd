@@ -1,0 +1,117 @@
+---
+title: "Practical 3"
+output: html_document
+date: "2024-11-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load necessary libraries
+library(quantmod)
+library(tseries)
+library(PerformanceAnalytics)
+
+```
+#### Data Pre-processing
+```{r}
+# Load the dataset
+raw_data <- read.csv("INDEX_US_XNAS_COMP.csv")
+
+# Data Pre-processing
+raw_data$Date <- as.Date(raw_data$Date, format = "%m/%d/%Y")
+raw_data$Open <- as.numeric(gsub(",", "", raw_data$Open))
+
+# Sort by date
+raw_data <- raw_data[order(raw_data$Date), ]
+
+# 1. Compute the daily returns
+raw_data$Return <- c(NA, -diff(log(raw_data$Open)) * 100)  # Negative log returns in percentage
+raw_data <- na.omit(raw_data)  # Remove NA values from the first row due to diff
+
+# Plot daily returns
+plot(raw_data$Date, raw_data$Return, type = "l", col = "#1CADE4", xlab = "Date", ylab = "Negative Log Returns (%)", main = "Negative Log Returns of Nasdaq")
+
+```
+#### Check for stationarity
+```{r}
+# 2. Check for stationarity using Augmented Dickey-Fuller test
+adf_test <- adf.test(raw_data$Return)
+print(adf_test)
+if (adf_test$p.value > 0.05) {
+  cat("The time series is non-stationary. Differencing will be performed to achieve stationarity.\n")
+  raw_data$Stationary_Return <- diff(raw_data$Return)
+  raw_data <- na.omit(raw_data)
+}
+
+
+```
+The daily returns are stationary (pval < 0.05), we can therefore confidently apply stastical analysis on it.
+
+```{r}
+# 3. Test for normality
+shapiro_test <- shapiro.test(raw_data$Return)
+print(shapiro_test)
+if (shapiro_test$p.value > 0.05) {
+  cat("The distribution appears to be normal. Proceeding with parametric VaR calculation.\n")
+} else {
+  cat("The distribution does not appear to be normal. Caution is advised when using parametric VaR methods.\n")
+}
+
+# Plot histogram and Q-Q plot to visually inspect normality
+par(mfrow = c(1, 2))
+hist(raw_data$Return, breaks = 30, main = "Histogram of Negative Log Returns", xlab = "Negative Log Returns (%)", col = "lightblue")
+qqnorm(raw_data$Return, main = "Q-Q Plot of Negative Log Returns")
+qqline(raw_data$Return, col = "red")
+par(mfrow = c(1, 1))
+```
+The daily returns are not normally distributed. Therefore, using parametric Value at Risk and Expected Shortfall could result in under/overestimating the risk. We will therefore use the historical VaR and ES moving forward.
+
+```{r}
+# 4. Calculate Value at Risk (VaR)
+confidence_levels <- c(0.95, 0.99)
+
+# Historical VaR calculation
+for (cl in confidence_levels) {
+  var_level <- quantile(raw_data$Return, probs = 1 - cl)
+  cat(sprintf("Historical VaR at %.0f%% confidence level: %.2f%%\n", cl * 100, var_level))
+}
+
+```
+
+We can interpret these results as:
+  "With probability 5% (1%), the daily returns will be smaller than -2.19% (-3.35%).
+
+
+```{r}
+
+# Visualize VaR levels against daily returns
+plot(raw_data$Date, raw_data$Return, type = "l", col = "#1CADE4", xlab = "Date", ylab = "Negative Log Returns (%)", main = "Negative Log Returns with VaR Levels")
+abline(h = quantile(raw_data$Return, probs = 1 - 0.95), col = "#42BA97", lty = 2, lwd = 2)
+abline(h = quantile(raw_data$Return, probs = 1 - 0.99), col = "#3E8853", lty = 2, lwd = 2)
+legend("topright", legend = c("Negative Log Returns", "Historical VaR 95%", "Historical VaR 99%"), col = c("#1CADE4", "#42BA97", "#3E8853"), lty = c(1, 2, 2))
+
+```
+
+```{r}
+# 5. Calculate Expected Shortfall (ES)
+# Historical ES calculation
+for (cl in confidence_levels) {
+  es_level <- mean(raw_data$Return[raw_data$Return <= quantile(raw_data$Return, probs = 1 - cl)])
+  cat(sprintf("Historical ES at %.0f%% confidence level: %.2f%%\n", cl * 100, es_level))
+}
+
+# Compare VaR and ES values
+cat("\nComparison of VaR and ES:\n")
+for (cl in confidence_levels) {
+  historical_var <- quantile(raw_data$Return, probs = 1 - cl)
+  historical_es <- mean(raw_data$Return[raw_data$Return <= historical_var])
+  cat(sprintf("At %.0f%% confidence level:\n", cl * 100))
+  cat(sprintf("  Historical VaR: %.2f%%, Historical ES: %.2f%%\n", historical_var, historical_es))
+}
+
+```
+We can interpret these results as:
+  "When the daily returns are lower than -2.19% (-3.35%), it is expected to be -2.91% (-4.29%).
