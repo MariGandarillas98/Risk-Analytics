@@ -14,6 +14,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, message =FALSE}
 library("xts")
 library("quantmod")
+library(ggplot2)
+library(dplyr)
 ```
 
 
@@ -44,9 +46,10 @@ open_xts <- xts(raw_data$Open, order.by = raw_data$Date)
 
 #### Plot the time-series
 ```{r}
-plot(nasdaq_ts, main = "Open Prices Time Series", ylab = "Open Price", xlab = "Time")
-print(summary(nasdaq_ts))
+plot(nasdaq_ts, main = "Open Prices Time Series", ylab = "Open Price", xlab = "Time", xaxt = "n")
+axis(1, at = unique(floor(time(nasdaq_ts))))
 
+print(summary(nasdaq_ts))
 ```
 
 #### Computing the daily returns
@@ -57,6 +60,7 @@ summary(raw_data$Return)
 plot(raw_data$Date, raw_data$Return, type = "l", 
      main = "Daily Returns", xlab = "Date", ylab = "Daily Return (%)")
 ```
+The summary of the daily returns shows a wide range of values, with a minimum return of -6.84% and a maximum return of 7.13%, indicating significant volatility. The mean return is 0.06%, suggesting a mild positive average return, while the median return is higher at 0.18%, indicating that most daily returns are slightly positive.
 
 ## Value at Risk (VaR)
 
@@ -107,6 +111,7 @@ legend("topright", legend = c("Hist VaR 95%", "Hist VaR 99%",
        lty = c(2, 3, 2, 3))
 
 ```
+The Historical VaR values indicate that, with 95% confidence, the worst expected daily loss is -2.46%, and with 99% confidence, it is -3.93%. In comparison, the Parametric VaR estimates the worst daily loss at -2.38% for the 95% confidence level and -3.35% for the 99% confidence level. While both methods suggest similar risk levels, the Historical VaR provides a more direct representation of past market behavior, whereas the Parametric VaR relies on statistical assumptions, offering a slightly more conservative estimate of potential losses.
 
 #### Monthly Var
 
@@ -186,6 +191,7 @@ legend("topright", legend = c("Hist VaR 95%", "Hist VaR 99%",
        col = c("red", "red", "green", "green"), lty = c(2, 3, 2, 3))
 
 ```
+The Yearly Historical VaR values are -25.87% at the 95% confidence level and -32.42% at the 99% confidence level. These values suggest that, based on historical data, the worst expected losses over the course of a year are significantly smaller compared to the Yearly Parametric VaR values, which are -63.02% at 95% and -83.49% at 99%.
 
 ## Expected shortfall
 ```{r}
@@ -219,7 +225,7 @@ print("Parametric Expected Shortfall (ES):")
 print(parametric_es)
 
 ```
-
+The Historical Expected Shortfall (ES) values are -3.39% at the 95% confidence level and -4.78% at the 99% confidence level, indicating the average loss that occurs beyond the VaR threshold. The Parametric Expected Shortfall (ES) values are 2.86% at the 95% confidence level and 3.71% at the 99% confidence level, which are positive, reflecting a different outcome. The parametric method appears to indicate potential gains or less severe losses, as it assumes returns follow a normal distribution, which may not capture extreme losses as effectively as the historical approach. This disparity highlights the limitations of the parametric model in accurately estimating the true risk of extreme events.
 ```{r}
 # Combine VaR and ES into a data frame for comparison
 comparison <- data.frame(
@@ -234,6 +240,7 @@ print("Comparison of VaR and ES:")
 print(comparison)
 
 ```
+In conclusion, the Historical method provides a more conservative and realistic measure of risk, especially in tail events, by incorporating real past data, while the Parametric method, based on the assumption of normality, tends to underestimate extreme risk. 
 ```{r}
 # Ensure correct structure for barplot
 barplot(
@@ -248,4 +255,78 @@ barplot(
 )
 
 ```
+## The Stop-Loss Strategy
 
+### Count the Triggers
+```{r}
+# Add VaR and ES thresholds to the data
+raw_data$VaR_95 <- historical_var["95%"]
+raw_data$VaR_99 <- historical_var["99%"]
+raw_data$ES_95 <- historical_es["95%"]
+raw_data$ES_99 <- historical_es["99%"]
+
+# Identify when stop-loss is triggered
+raw_data$Stop_Loss_95 <- raw_data$Return <= raw_data$VaR_95
+raw_data$Stop_Loss_99 <- raw_data$Return <= raw_data$VaR_99
+raw_data$Stop_Loss_ES_95 <- raw_data$Return <= raw_data$ES_95
+raw_data$Stop_Loss_ES_99 <- raw_data$Return <= raw_data$ES_99
+
+# Count triggers for each strategy
+trigger_counts <- colSums(raw_data[, c("Stop_Loss_95", "Stop_Loss_99", "Stop_Loss_ES_95", "Stop_Loss_ES_99")])
+names(trigger_counts) <- c("VaR 95%", "VaR 99%", "ES 95%", "ES 99%")
+
+print("Number of Stop-Loss Activations:")
+print(trigger_counts)
+
+```
+The stop-loss strategy was triggered a different number of times depending on the chosen risk measure (VaR or ES) and confidence level. 
+The 95% confidence level resulted in significantly more activations compared to the 99% confidence level, as expected. This reflects the more conservative nature of the 99% threshold, which corresponds to rarer and more extreme market movements.
+Expected Shortfall (ES) triggered fewer activations than VaR at the same confidence level, demonstrating its focus on the average of the extreme tail events rather than a specific quantile.
+
+```{r}
+# Cumulative returns without stop-loss
+raw_data$Cumulative_Return_No_Stop <- cumsum(raw_data$Return)
+
+# Cumulative returns with stop-loss for each strategy
+raw_data$Cumulative_Return_With_Stop_95 <- cumsum(ifelse(raw_data$Stop_Loss_95, 0, raw_data$Return))
+raw_data$Cumulative_Return_With_Stop_99 <- cumsum(ifelse(raw_data$Stop_Loss_99, 0, raw_data$Return))
+raw_data$Cumulative_Return_With_Stop_ES_95 <- cumsum(ifelse(raw_data$Stop_Loss_ES_95, 0, raw_data$Return))
+raw_data$Cumulative_Return_With_Stop_ES_99 <- cumsum(ifelse(raw_data$Stop_Loss_ES_99, 0, raw_data$Return))
+
+# Plot Cumulative returns without stop-loss and with stop-loss for each strategy
+data.frame(
+  Date = rep(raw_data$Date, 5),
+  Cumulative_Return = c(
+    raw_data$Cumulative_Return_No_Stop,
+    raw_data$Cumulative_Return_With_Stop_95,
+    raw_data$Cumulative_Return_With_Stop_99,
+    raw_data$Cumulative_Return_With_Stop_ES_95,
+    raw_data$Cumulative_Return_With_Stop_ES_99
+  ),
+  Strategy = rep(c("Without Stop-Loss", 
+                   "With Stop-Loss (VaR 95%)", 
+                   "With Stop-Loss (VaR 99%)", 
+                   "With Stop-Loss (ES 95%)", 
+                   "With Stop-Loss (ES 99%)"), 
+                 each = nrow(raw_data))
+) %>% ggplot( aes(x = Date, y = Cumulative_Return, color = Strategy)) +
+  geom_line() +
+  scale_color_manual(values = c(
+    "Without Stop-Loss" = "blue", 
+    "With Stop-Loss (VaR 95%)" = "red", 
+    "With Stop-Loss (VaR 99%)" = "darkred", 
+    "With Stop-Loss (ES 95%)" = "green", 
+    "With Stop-Loss (ES 99%)" = "darkgreen"
+  )) +
+  labs(
+    title = "Cumulative Returns with and without Stop-Loss Strategies",
+    x = "Date",
+    y = "Cumulative Return"
+  ) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+```
+The analysis reveals a significant difference between the cumulative returns of strategies with and without stop-loss. Specifically, the strategy with the stop-loss set at VaR 95% yielded the highest cumulative return, reaching 230, while the strategy without any stop-loss resulted in the lowest cumulative return at 57. This suggests that implementing a VaR-based stop-loss strategy helps to mitigate large losses, leading to a more favorable overall performance. The stop-loss strategy limits significant downturns by cutting losses early, which can be beneficial in volatile market conditions.
+The stop-loss triggered during sharp declines in the portfolio, effectively preventing deeper drawdowns. This is evident as the cumulative return with the stop-loss strategy is consistently higher, demonstrating the protective nature of the stop-loss in limiting the impact of negative returns.
+However, one consideration when using a stop-loss is the potential for missing significant rebounds after a sharp downturn.  The stop-loss strategy may have exited positions at lower prices, missing the opportunity to capitalize on rebounds.
