@@ -2,15 +2,17 @@
 title: "Practical 3"
 output: html_document
 date: "2024-11-19"
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Data Pre-processing
+## 1. Data Pre-processing
 
-#####
 ```{r, message =FALSE}
 library("xts")
 library("quantmod")
@@ -19,7 +21,6 @@ library(dplyr)
 library(tseries)
 library(PerformanceAnalytics)
 ```
-
 
 ```{r}
 raw_data <- read.csv("INDEX_US_XNAS_COMP.csv")
@@ -45,8 +46,8 @@ nasdaq_ts <- ts(raw_data$Open,
 open_xts <- xts(raw_data$Open, order.by = raw_data$Date)
 ```
 
+#### 1.1 Plot the time-series
 
-#### Plot the time-series
 ```{r}
 plot(nasdaq_ts, main = "Open Prices Time Series", ylab = "Open Price", xlab = "Time", xaxt = "n")
 axis(1, at = unique(floor(time(nasdaq_ts))))
@@ -54,7 +55,8 @@ axis(1, at = unique(floor(time(nasdaq_ts))))
 print(summary(nasdaq_ts))
 ```
 
-#### Computing the daily returns
+#### 1.2 Computing the daily returns
+
 ```{r}
 # 1. Compute the daily returns
 raw_data$Return <- c(NA, -diff(log(raw_data$Open)) * 100)  # Negative log returns in percentage
@@ -64,11 +66,14 @@ raw_data <- na.omit(raw_data)  # Remove NA values from the first row due to diff
 plot(raw_data$Date, raw_data$Return, type = "l", col = "#1CADE4", xlab = "Date", ylab = "Negative Log Returns (%)", main = "Negative Log Returns of Nasdaq")
 
 ```
-The summary of the daily returns shows a wide range of values, with a minimum return of -6.84% and a maximum return of 7.13%, indicating significant volatility. The mean return is 0.06%, suggesting a mild positive average return, while the median return is higher at 0.18%, indicating that most daily returns are slightly positive.
 
-## Value at Risk (VaR)
+The summary of the daily returns shows a wide range of values, with a minimum return of -6.84% and a maximum return of 7.13%, indicating significant volatility.
+The mean return is 0.06%, suggesting a mild positive average return, while the median return is higher at 0.18%, indicating that most daily returns are slightly positive.
 
-#### Check for stationarity
+## 2. Value at Risk (VaR)
+
+#### 2.1 Check for stationarity
+
 ```{r}
 # 2. Check for stationarity using Augmented Dickey-Fuller test
 adf_test <- adf.test(raw_data$Return)
@@ -81,7 +86,10 @@ if (adf_test$p.value > 0.05) {
 
 ```
 
-The daily returns are stationary (pval < 0.05),.
+The daily returns are stationary (pval \< 0.05),.
+
+#### 2.2 Check normality
+
 ```{r}
 # 3. Test for normality
 shapiro_test <- shapiro.test(raw_data$Return)
@@ -99,9 +107,12 @@ qqnorm(raw_data$Return, main = "Q-Q Plot of Negative Log Returns")
 qqline(raw_data$Return, col = "red")
 par(mfrow = c(1, 1))
 ```
-The daily returns are not normally distributed. Therefore, using parametric Value at Risk and Expected Shortfall could result in under/overestimating the risk. We will therefore use the historical VaR and ES moving forward.
 
+The daily returns are not normally distributed.
+Therefore, using parametric Value at Risk and Expected Shortfall could result in under/overestimating the risk.
+We will therefore use the historical VaR and ES moving forward.
 
+#### 2.3 Calculation of VaR
 
 ```{r}
 # 4. Calculate Value at Risk (VaR)
@@ -114,14 +125,35 @@ for (i in seq_along(confidence_levels)) {
   historical_var[i] <- quantile(raw_data$Return, probs = 1 - cl)
 }
 
+# Output Historical VaR results
+for (i in seq_along(confidence_levels)) {
+  cat(sprintf("Historical VaR at %.0f%% confidence level: %.2f%%\n", 
+              confidence_levels[i] * 100, historical_var[i]))
+}
+# Parametric VaR calculation
+mu <- mean(raw_data$Return)  # Mean of returns
+sigma <- sd(raw_data$Return) # Standard deviation of returns
+confidence_levels <- c(0.95, 0.99)
+
+# Calculate VaR for each confidence level
+parametric_var <- numeric(length(confidence_levels))
+for (i in seq_along(confidence_levels)) {
+  z_alpha <- qnorm(1 - confidence_levels[i])  # Z value for the confidence level
+  parametric_var[i] <- mu + z_alpha * sigma
+}
+
+# Output Parametric VaR results
+for (i in seq_along(confidence_levels)) {
+  cat(sprintf("Parametric VaR at %.0f%% confidence level: %.2f%%\n", 
+              confidence_levels[i] * 100, parametric_var[i]))
+}
 
 ```
 
-We can interpret these results as:
-  "With probability 5% (1%), the daily returns will be smaller than -2.19% (-3.35%).
+We can interpret these results as: "With probability 5% (1%), the daily returns will be smaller than **-2.19% (-3.35%).**
 
-The Historical VaR values indicate that, with 95% confidence, the worst expected daily loss is -2.46%, and with 99% confidence, it is -3.93%. In comparison, the Parametric VaR estimates the worst daily loss at -2.38% for the 95% confidence level and -3.35% for the 99% confidence level. While both methods suggest similar risk levels, the Historical VaR provides a more direct representation of past market behavior, whereas the Parametric VaR relies on statistical assumptions, offering a slightly more conservative estimate of potential losses.
-
+T**he Historical VaR values indicate that, with 95% confidence, the worst expected daily loss is -2.46%, and with 99% confidence, it is -3.93%. In comparison, the Parametric VaR estimates the worst daily loss at -2.38% for the 95% confidence level and -3.35%** for the 99% confidence level.
+While both methods suggest similar risk levels, the Historical VaR provides a more direct representation of past market behavior, whereas the Parametric VaR relies on statistical assumptions, offering a slightly more conservative estimate of potential losses.
 
 ```{r}
 
@@ -152,8 +184,8 @@ for (cl in confidence_levels) {
   cat(sprintf("  Historical VaR: %.2f%%, Historical ES: %.2f%%\n", h_var, h_es))
 }
 ```
-We can interpret these results as:
-  "When the daily returns are lower than -2.19% (-3.35%), it is expected to be -2.91% (-4.29%).
+
+We can interpret these results as: "When the daily returns are lower than -2.19% (-3.35%), it is expected to be **-2.91**% (-4.29%).
 
 ```{r}
 # 5. Combine VaR and ES into a data frame for comparison
@@ -175,14 +207,15 @@ historical_var <- levels[,1:2]
 historical_es <- levels[,c(1,3)]
 ```
 
+The Historical Expected Shortfall (ES) values a**re -3.39% at the 95% confidence level and -4.78% at the 99% confidence level, indicating the average loss that occurs beyond the VaR threshold. The Parametric Expected Shortfall (ES) values are 2.86% at the 95% confidence level and 3.71% at the 99% confidence level, which are positive, reflecting a different outcome. The parametric metho**d appears to indicate potential gains or less severe losses, as it assumes returns follow a normal distribution, which may not capture extreme losses as effectively as the historical approach.
+This disparity highlights the limitations of the parametric model in accurately estimating the true risk of extreme events.
 
-The Historical Expected Shortfall (ES) values are -3.39% at the 95% confidence level and -4.78% at the 99% confidence level, indicating the average loss that occurs beyond the VaR threshold. The Parametric Expected Shortfall (ES) values are 2.86% at the 95% confidence level and 3.71% at the 99% confidence level, which are positive, reflecting a different outcome. The parametric method appears to indicate potential gains or less severe losses, as it assumes returns follow a normal distribution, which may not capture extreme losses as effectively as the historical approach. This disparity highlights the limitations of the parametric model in accurately estimating the true risk of extreme events.
+In conclusion, the Historical method provides a more conservative and realistic measure of risk, especially in tail events, by incorporating real past data, while the Parametric method, based on the assumption of normality, tends to underestimate extreme risk.
 
-In conclusion, the Historical method provides a more conservative and realistic measure of risk, especially in tail events, by incorporating real past data, while the Parametric method, based on the assumption of normality, tends to underestimate extreme risk. 
+## 3. The Stop-Loss Strategy
 
-## The Stop-Loss Strategy
+### 3.1 Count the Triggers
 
-### Count the Triggers
 ```{r}
 # Add VaR and ES thresholds to the data
 raw_data$VaR_95 <- historical_var[1,2]
@@ -204,9 +237,13 @@ print("Number of Stop-Loss Activations:")
 print(trigger_counts)
 
 ```
-The stop-loss strategy was triggered a different number of times depending on the chosen risk measure (VaR or ES) and confidence level. 
-The 95% confidence level resulted in significantly more activations compared to the 99% confidence level, as expected. This reflects the more conservative nature of the 99% threshold, which corresponds to rarer and more extreme market movements.
+
+The stop-loss strategy was triggered a different number of times depending on the chosen risk measure (VaR or ES) and confidence level.
+The 95% confidence level resulted in significantly more activations compared to the 99% confidence level, as expected.
+This reflects the more conservative nature of the 99% threshold, which corresponds to rarer and more extreme market movements.
 Expected Shortfall (ES) triggered fewer activations than VaR at the same confidence level, demonstrating its focus on the average of the extreme tail events rather than a specific quantile.
+
+### 3.2 Cumulative Returns Analysis
 
 ```{r}
 # Cumulative returns without stop-loss
@@ -252,6 +289,12 @@ data.frame(
   theme(legend.title = element_blank())
 
 ```
-The analysis reveals a significant difference between the cumulative returns of strategies with and without stop-loss. Specifically, the strategy with the stop-loss set at VaR 95% yielded the highest cumulative return, reaching 230, while the strategy without any stop-loss resulted in the lowest cumulative return at 57. This suggests that implementing a VaR-based stop-loss strategy helps to mitigate large losses, leading to a more favorable overall performance. The stop-loss strategy limits significant downturns by cutting losses early, which can be beneficial in volatile market conditions.
-The stop-loss triggered during sharp declines in the portfolio, effectively preventing deeper drawdowns. This is evident as the cumulative return with the stop-loss strategy is consistently higher, demonstrating the protective nature of the stop-loss in limiting the impact of negative returns.
-However, one consideration when using a stop-loss is the potential for missing significant rebounds after a sharp downturn.  The stop-loss strategy may have exited positions at lower prices, missing the opportunity to capitalize on rebounds.
+
+The analysis reveals a significant difference between the cumulative returns of strategies with and without stop-loss.
+Specifically, the strategy with the stop-loss set at VaR 95% yielded the highest cumulative return, reaching 230, while the strategy without any stop-loss resulted in the lowest cumulative return at 57.
+This suggests that implementing a VaR-based stop-loss strategy helps to mitigate large losses, leading to a more favorable overall performance.
+The stop-loss strategy limits significant downturns by cutting losses early, which can be beneficial in volatile market conditions.
+The stop-loss triggered during sharp declines in the portfolio, effectively preventing deeper drawdowns.
+This is evident as the cumulative return with the stop-loss strategy is consistently higher, demonstrating the protective nature of the stop-loss in limiting the impact of negative returns.
+However, one consideration when using a stop-loss is the potential for missing significant rebounds after a sharp downturn.
+The stop-loss strategy may have exited positions at lower prices, missing the opportunity to capitalize on rebounds.
