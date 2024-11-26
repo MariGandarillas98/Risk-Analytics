@@ -14,12 +14,18 @@ knitr::opts_chunk$set(echo = TRUE)
 ## 1. Data Pre-processing
 
 ```{r, message =FALSE}
+install.packages(c("extRemes", "lubridate", "dplyr", "ggplot2", "kableExtra"))
+
 library("xts")
 library("quantmod")
+library(kableExtra)
 library(ggplot2)
 library(dplyr)
 library(tseries)
 library(PerformanceAnalytics)
+library(extRemes) 
+library(lubridate) 
+
 ```
 
 ```{r}
@@ -298,3 +304,68 @@ The stop-loss triggered during sharp declines in the portfolio, effectively prev
 This is evident as the cumulative return with the stop-loss strategy is consistently higher, demonstrating the protective nature of the stop-loss in limiting the impact of negative returns.
 However, one consideration when using a stop-loss is the potential for missing significant rebounds after a sharp downturn.
 The stop-loss strategy may have exited positions at lower prices, missing the opportunity to capitalize on rebounds.
+
+## 4. Extreme Values Theory
+
+### 4.1 Block Minima
+
+Weekly blocks were created by grouping the data into weeks based on the `Date` column.
+For each week, the **minimum return (**most negative value) was calculated, representing the **worst weekly loss**.
+This approach helps focus on extreme losses.
+
+```{r}
+# Step 1: Prepare Weekly Block Maxima
+raw_data$YearWeek <- format(raw_data$Date, "%Y-%U")  # Create Year-Week grouping
+
+# Calculate block maxima for each week
+block_minima_weekly <- raw_data %>%
+  group_by(YearWeek) %>%
+  summarize(BlockMin = min(Return, na.rm = TRUE))  # Weekly minimum returns
+
+# Step 2: Fit the GEV distribution
+gev_fit_weekly <- fevd(block_minima_weekly$BlockMin, type = "GEV")
+
+# Step 3: Summarize GEV parameters
+gev_summary <- summary(gev_fit_weekly)
+
+
+
+```
+
+The table shows the **weekly block minima** (worst losses) for the first six weeks in the dataset:
+
+```{r}
+  # Weekly periods
+# Round the BlockMax values to 4 decimals
+block_minima_weekly$BlockMin <- round(block_minima_weekly$BlockMin, 4)
+
+# Select only the first 6 rows of the table
+head_block_min <- head(block_minima_weekly)
+
+# Display the table (only the first 6 rows)
+head_block_min
+
+
+```
+
+Each row highlights the **worst weekly performance** of the index.
+For example, in the 45th week of 2020, the worst return was **-1.2435.**
+
+```{r}
+# Step 4: Visualize Weekly Block Maxima
+ggplot(block_minima_weekly, aes(x = as.Date(paste0(YearWeek, "-1"), format = "%Y-%U-%u"), y = BlockMin)) +
+  geom_line(color = "#27CED7") +
+  geom_point(color = "#3E8853") +
+  labs(
+    title = "Weekly Block Minima of Losses",
+    x = "Week",
+    y = "Block Minima (Losses)"
+  ) +
+  theme_minimal()
+```
+
+The graph highlights the **weekly worst returns** (block minima) over time, showing periods of heightened market stress where losses were more severe, such as around 2022.
+These spikes in negative returns indicate moments of increased volatility or external market pressures.
+However, outside of 2022, the general trend shows that most weekly losses are not excessively large suggesting a more stable risk profile during those periods.
+
+### 4.2 Peaks
