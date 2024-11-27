@@ -537,9 +537,6 @@ raw_data$Cumulative_Return_No_Stop <- cumsum(raw_data$Return)
 # Cumulative returns with stop-loss POT
 raw_data$Cumulative_Return_With_Stop_POT_99 <- cumsum(ifelse(raw_data$Stop_Loss_POT_99, 0, raw_data$Return))
 
-# Plot cumulative returns
-library(ggplot2)
-
 # Create a data frame for cumulative returns
 cumulative_returns <- data.frame(
   Date = rep(raw_data$Date, 2),
