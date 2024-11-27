@@ -369,3 +369,205 @@ These spikes in negative returns indicate moments of increased volatility or ext
 However, outside of 2022, the general trend shows that most weekly losses are not excessively large suggesting a more stable risk profile during those periods.
 
 ### 4.2 Peaks
+
+By applying the Peaks Over Threshold (POT) method using the Open prices, we've estimated the Value at Risk (VaR) and Expected Shortfall (ES) for extreme events in the Nasdaq Composite Index.
+This method provides an accurate and robust assessment of risk for extreme losses.
+
+**Threshold Selection**
+
+The choice of threshold is crucial in the POT method.
+An appropriate threshold balances bias and variance in parameter estimates.The mean excess plot helps identify a suitable threshold where the mean excess over the threshold is linear.
+Based on the plot, a suitable threshold would be around -2 to 0, where the mean excess stabilizes and becomes linear.
+
+```{r}
+# Mean Excess Plot
+meplot(-raw_data$Return, main = "Mean Excess Plot", col = "#42BA97")
+```
+
+The parameter stability plots provided a guidance to select a threshold.
+The region 2.2 and 2.8 shows stability, making it reliable range for analyzing extreme events.
+
+```{r}
+# Define a sequence of thresholds
+thresholds <- seq(quantile(-raw_data$Return, 0.90, na.rm = TRUE),
+                  quantile(-raw_data$Return, 0.99, na.rm = TRUE),
+                  length.out = 50)
+
+# Initialize vectors to store parameters
+xi_values <- numeric(length(thresholds))
+beta_values <- numeric(length(thresholds))
+
+# Fit the GPD for each threshold and store parameters
+for (i in seq_along(thresholds)) {
+  threshold <- thresholds[i]
+  # Fit GPD only if threshold is not NA
+  if (!is.na(threshold)) {
+    fit <- gpd(-raw_data$Return, threshold = threshold)
+    xi_values[i] <- fit$par.ests["xi"]
+    beta_values[i] <- fit$par.ests["beta"]
+  } else {
+    xi_values[i] <- NA
+    beta_values[i] <- NA
+  }
+}
+
+# Create a data frame for plotting
+gpd_params_df <- data.frame(
+  Threshold = thresholds,
+  Xi = xi_values,
+  Beta = beta_values
+)
+
+# Plot parameter stability with custom colors
+par(mfrow = c(1, 2))  # Arrange plots side by side
+
+# Plot for Xi (Stability of Xi) with a custom color
+plot(gpd_params_df$Threshold, gpd_params_df$Xi, type = "l",
+     col = "#2683C6",  # Custom color for Xi
+     xlab = "Threshold", ylab = "Xi",
+     main = "Stability of Xi", lwd = 2)
+
+# Plot for Beta (Stability of Beta) with a custom color
+plot(gpd_params_df$Threshold, gpd_params_df$Beta, type = "l",
+     col = "#42BA97",  # Custom color for Beta
+     xlab = "Threshold", ylab = "Beta",
+     main = "Stability of Beta", lwd = 2)
+
+# Reset plotting parameters
+par(mfrow = c(1, 1))
+
+```
+
+```{r}
+# Step 1: Set the threshold based on stability analysis
+u <- 2.5  # Chosen threshold from stability region
+
+# Step 2: Extract exceedances over the threshold
+excesses <- -raw_data$Return[raw_data$Return > u] - u
+
+# Print the threshold and some of the exceedances for verification
+print(paste("Selected Threshold (u):", u))
+print(head(excesses))
+
+```
+
+Fitting the Generalized Pareto Distribution (GPD):
+
+```{r}
+# Fit the GPD to the exceedances
+gpd_fit <- gpd(-raw_data$Return, threshold = u)
+
+# Summarize the fitted model
+kable(summary(gpd_fit))
+
+```
+
+Estimating Value at Risk (VaR) and Expected Shortfall (ES)
+
+```{r}
+# Estimated parameters
+xi <- as.numeric(gpd_fit$par.ests["xi"])
+beta <- as.numeric(gpd_fit$par.ests["beta"])
+
+# Sample sizes
+N <- length(raw_data$Return)
+N_exc <- sum(-raw_data$Return > u)
+
+# Confidence levels
+p_levels <- c(0.99, 0.995, 0.999)
+
+# Calculate VaR
+VaR_POT <- sapply(p_levels, function(p) {
+  VaR <- u + (beta / xi) * (((N_exc / (N * (1 - p)))^xi - 1))
+  return(-VaR)  # Convert back to negative return
+})
+
+# Create a data frame for results
+VaR_POT_df <- data.frame(
+  Confidence_Level = p_levels,
+  VaR = VaR_POT
+)
+
+# Display results
+kable(print(VaR_POT_df))
+
+```
+
+```{r}
+# Calculate ES
+ES_POT <- sapply(1:length(p_levels), function(i) {
+  p <- p_levels[i]
+  VaR_p <- -VaR_POT[i]  # Use positive value for calculation
+  ES <- (VaR_p / (1 - xi)) + ((beta - xi * u) / (1 - xi))
+  return(-ES)  # Convert back to negative return
+})
+
+# Add ES to the data frame
+VaR_POT_df$ES <- ES_POT
+
+# Display results
+kable(print(VaR_POT_df))
+
+```
+
+The analysis highlights the increasing severity of potential losses as confidence levels rise, with VaR and ES growing more extreme at 99.9% confidence.
+
+**Stop-Loss Strategy Based on POT VaR**
+
+```{r}
+# Add VaR levels to the dataset
+raw_data$VaR_POT_99 <- VaR_POT_df$VaR[VaR_POT_df$Confidence_Level == 0.99]
+
+# Generate stop-loss signals
+raw_data$Stop_Loss_POT_99 <- raw_data$Return <= raw_data$VaR_POT_99
+
+# Count the number of triggers
+num_triggers_POT_99 <- sum(raw_data$Stop_Loss_POT_99, na.rm = TRUE)
+cat("Number of stop-loss activations with POT at 99%:", num_triggers_POT_99, "\n")
+
+```
+
+According to the next plot, which compares the cumulative returns of two strategies.
+early (2021-2022) the performance of both strategies si similar, as extreme loss events are limited.But in late 2022, during a period of high market volatility, the stop-loss strategy reduce the significant losses, as it ca be observed between the two lines.
+
+```{r}
+# Cumulative returns without stop-loss
+raw_data$Cumulative_Return_No_Stop <- cumsum(raw_data$Return)
+
+# Cumulative returns with stop-loss POT
+raw_data$Cumulative_Return_With_Stop_POT_99 <- cumsum(ifelse(raw_data$Stop_Loss_POT_99, 0, raw_data$Return))
+
+# Plot cumulative returns
+library(ggplot2)
+
+# Create a data frame for cumulative returns
+cumulative_returns <- data.frame(
+  Date = rep(raw_data$Date, 2),
+  Cumulative_Return = c(raw_data$Cumulative_Return_No_Stop,
+                        raw_data$Cumulative_Return_With_Stop_POT_99),
+  Strategy = rep(c("Without Stop-Loss", "With Stop-Loss (POT 99%)"),
+                 each = nrow(raw_data))
+)
+
+# Custom colors for the strategies
+strategy_colors <- c("Without Stop-Loss" = "#1CADE4",  # Light Blue
+                     "With Stop-Loss (POT 99%)" = "#42BA97")  # Green
+
+# Plot cumulative returns with custom colors
+ggplot(cumulative_returns, aes(x = Date, y = Cumulative_Return, color = Strategy)) +
+  geom_line(size = 0.8) +
+  scale_color_manual(values = strategy_colors) +  # Apply custom colors
+  labs(
+    title = "Cumulative Returns with and without Stop-Loss Based on POT",
+    x = "Date",
+    y = "Cumulative Return (%)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.title = element_blank(),  # Remove legend title
+    legend.position = "bottom"       # Position legend at the bottom
+  )
+
+```
+
+The POT-based stop-loss strategy significantly outperforms the non-stop-loss approach in terms of long-term cumulative returns, highlighting its practicality for managing extreme risk.
