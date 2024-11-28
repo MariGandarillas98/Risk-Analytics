@@ -309,7 +309,7 @@ The stop-loss strategy may have exited positions at lower prices, missing the op
 
 ### How well do the previous developed models predict actual losses?
 
-In order to evaluate the accuracy of the developed models, we will perform backtesting to both VaR. Backtesting checks for each day if the actual returns are worse than the predictions and counts the number of breaches (days when the actual losses exceed VaR). For the model to be accurate, the violation rate should be close to 5% (1%). 
+In order to evaluate the accuracy of the developed models, we will perform backtesting to VaR. Backtesting checks each day if the actual returns are worse than the predictions and counts the number of breaches (days when the actual losses exceed VaR). For the model to be accurate, the violation rate should be close to 5% (1%). 
 For ES, we will perform tail risk prediction, which compares the actual extreme losses to the ES prediction. 
 ```{r}
 var_95 <- historical_var[1] 
@@ -333,8 +333,27 @@ cat(sprintf("99%% VaR: Actual Violation Rate = %.2f%%, Expected = %.2f%%\n",
             violation_rate_99 * 100, expected_violation_99 * 100))
 ```
 
-Both 95% and 99% VaR models underestimated the actual frequency of extreme losses, this is because Historical VaR is too conservative and captures most losses without living room to actual violations. 
+Both 95% and 99% VaR models underestimated the actual frequency of extreme losses, this is because Historical VaR is too conservative and captures most losses within its range. Historical VaR uses past data, and if this data already includes extreme events, then the model will predict large thresholds, leaving almost no room for violations. In this sense, this model the low violation rates suggest the model captures more risk than necessary. 
 
+```{r}
+varr_95 <- historical_var$Historical_VaR[historical_var$Confidence_Level == "95%"]
+varr_95 <- as.numeric(varr_95)
+
+varr_99 <- historical_var$Historical_VaR[historical_var$Confidence_Level == "99%"]
+varr_99 <- as.numeric(varr_99)
+
+plot(raw_data$Date, raw_data$Return, type = "l", col = "#1CADE4", 
+     xlab = "Date", ylab = "Daily Returns (%)", main = "Daily Returns vs. VaR Thresholds")
+
+
+abline(h = varr_95, col = "#FF6347", lty = 2, lwd = 2)  
+abline(h = varr_99, col = "#32CD32", lty = 2, lwd = 2) 
+
+legend("topright", legend = c("Daily Returns", "95% VaR", "99% VaR"), 
+       col = c("#1CADE4", "#FF6347", "#32CD32"), lty = c(1, 2, 2), lwd = 2)
+
+```
+As seen in the graph, most daily returns are around -2% and 2%. VaR 95% is around -2.19% and VaR 99% is around -3.35%, only few returns approach or breach the thresholds, meaning these leave no room for violations. This model can be beneficial for risk averse strategies, but may lead to overestimation of risk buffers. 
 ```{r}
 es_95 <- historical_es$Historical_ES[1] 
 es_99 <- historical_es$Historical_ES[2] 
@@ -349,7 +368,7 @@ cat(sprintf("99%% ES: Predicted = %.2f%%, Actual Mean Loss = %.2f%%\n", es_99, m
 
 ```
 
-The ES model provides a realistic measure of tail risk, however, the average loss will be 2.91% (4.29%), which in practice is much higher than the real average loss. The model is too conservative, because it assumes much worse losses than what actually occurred in order to ensure safety. However, a conservative model can be inefficient because it leads investors to avoid risks unnecessarily. 
+A good way to complement the Historical VaR is to rely on the ES, in order to understand the average severity losses beyond the thresholds. The ES model provides a realistic measure of tail risk, the average loss will be 2.91% (4.29%), which means that the observed average loss for returns below the 95% (99%) VaR are less severe or no observed losses in the 99% case, indicating the model is overly conservative. ES assumes extreme losses are much larger than the actual historical data.
 
 ```{r}
 parametric_var_95 <- parametric_var[1]
@@ -367,7 +386,7 @@ cat(sprintf("95%% Parametric VaR: Violation Rate = %.2f%%\n", parametric_violati
 cat(sprintf("99%% Historical VaR: Violation Rate = %.2f%%\n", violation_rate_99 * 100))
 cat(sprintf("99%% Parametric VaR: Violation Rate = %.2f%%\n", parametric_violation_rate_99 * 100))
 ```
-Parametric Var for both 95% and 99% confidence levels are more realistic than the historical ones. For 95%, the violation rate gets closer to the expected one but still under predicts the actual frequency of violations. For 99%, it almost matches the expected 1%, which is fine. So, historical VaR is more conservative, leaving no tail events to breach the threshold, while parametric VaR performs better especially at 99% confidence. 
+Parametric VaR for both 95% and 99% confidence levels are more realistic than the historical ones. For 95%, the violation rate gets closer to the expected one but still under predicts the actual frequency of violations. For 99%, it almost matches the expected 1%, meaning the violoation rate is almost perfect. Historical VaR is more conservative, leaving no tail events to breach the threshold, while parametric VaR performs better especially at 99% confidence. 
 
 ```{r}
 breach_data <- data.frame(
@@ -384,6 +403,8 @@ ggplot(breach_data, aes(x = Confidence_Level)) +
 
 
 ```
+Parametric VaR provides more realistic thresholds at both confidence levels, historical VaR should be used for highly risk averse scenarios, where safer choisces are required. 
+
 ## 4. Extreme Values Theory
 
 ### 4.1 Block Maxima
@@ -654,74 +675,28 @@ The POT-based stop-loss strategy significantly outperforms the non-stop-loss app
 ### Models Comparison
 
 1. Historical VaR: estimates the worst case loss based on historical returns, it is simple and reflects historical market behavior, however it assumes the future will behave as the past and does not consider the extreme tail behavior beyond the historical range. 
-2. Parametric VaR: uses statistical assumptions to estimate the worst case loss, instead of using historical data. It is useful for stable markets with normally distributed returns, however the assumption for normality may underestimate tail risks and also may not work properly in volatile market conditions. 
-3. Expected Shortfall: estimates the avergae loss in the worst case scenario when losses exceed the VaR threshold. It considers tail risks beyond VaR, so relies on the same data or assumptions as the VaR model (same issues). It can also be overly conservative. 
+2. Parametric VaR: uses statistical assumptions to estimate the worst case loss, instead of using historical data. It is useful for stable markets with normally distributed returns, however the assumption for normality may underestimate tail risks.
+3. Expected Shortfall: estimates the average loss in the worst case scenario, when losses exceed the VaR threshold. It considers tail risks beyond VaR, so relies on the same data or assumptions as the VaR model (same issues). It can also be overly conservative. 
 4. Block Maxima Model: groups data into fixed time intervals and extracts the largest loss in each block. It is useful because it focuses on extreme events without considering a specific threshold. However, it only extracts one value per block, other extreme values are ignored. 
 5. Peaks Over Threshold Method: focuses only on extreme losses that exceed a certain threshold. It provides more accurate estimates of tail risks for extreme events and generates VaR and ES for very high confiedence levels. However, selecting a threshold requires a lot of attentions. 
 
-Previously, we determined that parametric VaR was the less conservative and hence the more realistic, especially for a 99% confidence level. In order to determine which one is better between Block Maxima and POT: 
+Previously, we determined that parametric VaR was the less conservative and hence the more realistic, especially for a 99% confidence level. POT is more flexible and can accurately predict both frequency and severity of extreme losses, specially for rare events. While Block Maxima focuses only on the maximum loss in each block and discards smaller tail losses. In order to determine which one is better between Block Maxima and POT: 
 
 ```{r}
-raw_data$YearWeek <- format(raw_data$Date, "%Y-%U")
-block_maxima_weekly <- raw_data %>%
-  group_by(YearWeek) %>%
-  summarize(BlockMax = max(Return, na.rm = TRUE))
-gev_fit <- fevd(block_maxima_weekly$BlockMax, type = "GEV")
+plot(return_periods, return_levels_pot, type = "l", col = "#2683c6", lwd = 2,
+     main = "Return Levels Comparison (POT vs GEV)", xlab = "Return Period (Years)", ylab = "Return Level (%)")
+lines(return_periods, return_levels_gev, col = "#3E8853", lwd = 2)
+legend("topright", legend = c("POT", "GEV"), col = c("#2683c6", "#3E8853"), lty = 1, lwd = 2)
 
-threshold <- 2.5
-exceedances <- -raw_data$Return[raw_data$Return > threshold] - threshold
-
-gpd_fit <- gpd(-raw_data$Return, threshold = threshold)
-
-return_periods <- c(10, 50, 100)
-gev_return_levels <- return.level(gev_fit, return.periods = return_periods)
-
-N <- length(raw_data$Return)
-N_exc <- length(exceedances)
-xi <- gpd_fit$par.ests["xi"]
-beta <- gpd_fit$par.ests["beta"]
-
-confidence_levels <- 1 - 1 / return_periods
-
-pot_return_levels <- sapply(confidence_levels, function(p) {
-  threshold + (beta / xi) * (((N_exc / (N * (1 - p)))^xi - 1))
-})
-
-cat("Peaks Over Threshold (POT) Return Levels:\n")
-print(data.frame(Return_Period = return_periods, Return_Level = pot_return_levels))
-
-qqplot(
-  qgev(
-    ppoints(length(block_maxima_weekly$BlockMax)),
-    loc = gev_fit$results$par["location"], 
-    scale = gev_fit$results$par["scale"], 
-    shape = gev_fit$results$par["shape"]  
-  ),
-  block_maxima_weekly$BlockMax,
-  main = "QQ-Plot for Block Maxima (GEV)",
-  xlab = "Theoretical Quantiles",
-  ylab = "Observed Block Maxima"
-)
-abline(0, 1, col = "red")
-
-plot(gev_fit, type = "rl", main = "Return Level Plot (Block Maxima)")
-
-pot_return_levels_plot <- data.frame(
-  Return_Period = return_periods,
-  Return_Level = pot_return_levels
-)
-
-ggplot(pot_return_levels_plot, aes(x = Return_Period, y = Return_Level)) +
-  geom_point(color = "blue") +
-  geom_line(color = "blue") +
-  labs(title = "Return Level Plot (POT)", x = "Return Period (Years)", y = "Return Level") +
-  theme_minimal()
 ```
-Considering the QQ Plot for Block Maxima, most of the points align with the diagonal which suggests that the GDP is an appropriate fit to the exceedances, however the deviation at the tails suggest a slight under or overestimation of extreme values. Looking at the Return Level Plot for Block Maxima, we can also see that the GEV model has a good fit since there are higher extreme values for less frequent events. 
 
-Considering the Return Level Plot for POT, show that the return levels are lower compared to the GEV model, which indicates the GDP is less conservative for extreme events. 
+Looking at the return levels between POT and GEV, POT shows a more gradual increase in return levels as the return period increases. This is more realistic than GEV's sharp increase, which suggests GEV is overestimating extreme events for a shorter period due to the reliance on block maxima that reduces the information used in the analysis. POTis more reliable for assessing risk because it uses more data, while GEV is useful in certain applications. 
 
-From the plots, we can conclude overall both have a good fit to the data, however the GEV model can be more conservative, predicting higher extreme values than POT. 
+Conclusion POT>Block Maxima> Parametric VaR, in terms of capturing frequency and severity and balancing risk estimation and conservatism. 
 
 ### Recommendations: 
-1. The expected shortfall model should be used with careful attention given that it is overly conservative and could lead to mistakes in the risk management decisions. 
+1. Concerning the Parametric VaR, the model is easy to compute and understands and works well with large data sets, however it assumes normality of returns which may not be realistic.This model is recommended for stable markets where the return distribution is normal. It can also be be complemented with ES.  The expected shortfall model should be used with careful attention given that it is overly conservative and could lead to mistakes in the risk management decisions. 
+
+2. Peaks over Threshold captures a larger range of extreme values because it uses the GDP and uses ALL exceedances above threshold. However, we recommend careful selection of the threshold to avoid bias results. This model is the most accurate for extreme events, so in order to have a good threshold selection we recommend the Mean Excess Plot as a diagnostic tool. 
+
+3. Block Maxima is a useful model when data sets have periodic maxima ot has extreme events at fixed periods. However, it only focuses on these values and ignores other possible data points. We recommend this model for climatology or natural disasters but not for assessing financial risks fue to the volatility of this type of events. 
