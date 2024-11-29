@@ -27,7 +27,6 @@ library(extRemes)
 library(lubridate) 
 library(evir)
 
-
 ```
 
 ```{r}
@@ -683,14 +682,52 @@ The POT-based stop-loss strategy significantly outperforms the non-stop-loss app
 Previously, we determined that parametric VaR was the less conservative and hence the more realistic, especially for a 99% confidence level. POT is more flexible and can accurately predict both frequency and severity of extreme losses, specially for rare events. While Block Maxima focuses only on the maximum loss in each block and discards smaller tail losses. In order to determine which one is better between Block Maxima and POT: 
 
 ```{r}
-plot(return_periods, return_levels_pot, type = "l", col = "#2683c6", lwd = 2,
-     main = "Return Levels Comparison (POT vs GEV)", xlab = "Return Period (Years)", ylab = "Return Level (%)")
-lines(return_periods, return_levels_gev, col = "#3E8853", lwd = 2)
-legend("topright", legend = c("POT", "GEV"), col = c("#2683c6", "#3E8853"), lty = 1, lwd = 2)
+
+return_periods <- c(1, 2, 5, 10, 20, 50, 100)
+
+gev_fit <- fevd(block_maxima_weekly$BlockMax, type = "GEV")
+
+gev_params <- gev_fit$results$par
+mu <- gev_params["location"]
+sigma <- gev_params["scale"]
+xi <- gev_params["shape"]
+
+gev_return_levels <- sapply(return_periods, function(T) {
+  mu - (sigma / xi) * (1 - (-log(1 - 1/T))^(-xi))
+})
+
+u <- 2.5
+gpd_fit <- gpd(-raw_data$Return, threshold = u)
+
+xi_pot <- gpd_fit$par.ests["xi"]
+beta_pot <- gpd_fit$par.ests["beta"]
+
+pot_return_levels <- sapply(return_periods, function(T) {
+  u + (beta_pot / xi_pot) * ((T * sum(raw_data$Return > u) / length(raw_data$Return))^xi_pot - 1)
+})
+
+comparison_df <- data.frame(
+  ReturnPeriod = return_periods,
+  BlockMaxima = gev_return_levels,
+  POT = pot_return_levels
+)
+
+print(comparison_df)
+
+ggplot(comparison_df, aes(x = ReturnPeriod)) +
+  geom_line(aes(y = BlockMaxima, color = "Block Maxima"), size = 1) +
+  geom_line(aes(y = POT, color = "POT"), size = 1) +
+  labs(
+    title = "Return Levels Comparison: Block Maxima vs POT",
+    x = "Return Period (Years)",
+    y = "Return Level"
+  ) +
+  theme_minimal() +
+  scale_color_manual(values = c("Block Maxima" = "#2683C6", "POT" = "#42BA97"))
+
 
 ```
-
-Looking at the return levels between POT and GEV, POT shows a more gradual increase in return levels as the return period increases. This is more realistic than GEV's sharp increase, which suggests GEV is overestimating extreme events for a shorter period due to the reliance on block maxima that reduces the information used in the analysis. POTis more reliable for assessing risk because it uses more data, while GEV is useful in certain applications. 
+Looking at the table, Block Maxima model predicts higher return levels than the POT model, especially for extreme periods like 50 and beyond. POT predicts more moderate estimates of return levels. This is also shown in the graph, where POT has a curve which grows less sharply than Block Maxima, which suggests more stable and gradual increase in return levels. In this sense, Block Maxima overestimates extreme values due to the few extreme events it considers for the model, so POT provides more stable estimates, which makes it a more reliable model for financial risk measurements. 
 
 Conclusion POT>Block Maxima> Parametric VaR, in terms of capturing frequency and severity and balancing risk estimation and conservatism. 
 
@@ -699,4 +736,4 @@ Conclusion POT>Block Maxima> Parametric VaR, in terms of capturing frequency and
 
 2. Peaks over Threshold captures a larger range of extreme values because it uses the GDP and uses ALL exceedances above threshold. However, we recommend careful selection of the threshold to avoid bias results. This model is the most accurate for extreme events, so in order to have a good threshold selection we recommend the Mean Excess Plot as a diagnostic tool. 
 
-3. Block Maxima is a useful model when data sets have periodic maxima ot has extreme events at fixed periods. However, it only focuses on these values and ignores other possible data points. We recommend this model for climatology or natural disasters but not for assessing financial risks fue to the volatility of this type of events. 
+3. Block Maxima is a useful model when data sets have periodic maxima or has extreme events at fixed periods. However, it only focuses on these values and ignores other possible data points. We recommend this model for climatology or natural disasters but not for assessing financial risks due to the volatility of this type of events. 
