@@ -67,11 +67,15 @@ library(lmtest)
 
     # Plotting the cumulative periodogram
     cpgram(bitcoin_ts, main = "Cumulative Periodogram")
-
+    # Check for stationarity using Augmented Dickey-Fuller test
+    adf_test <- adf.test(crypto$Bitcoin)
+    print(adf_test)
+    if (adf_test$p.value > 0.05) {
+      cat("The time series is non-stationary. Differencing will be performed to achieve stationarity.\n") }
 
     ```
 
-    The cumulative periodogram shows clearly that the data base is not stationary as the observations are outside the confidence interval of white noise stationarity.
+    The cumulative periodogram shows clearly that the data base is not stationary as the observations are outside the confidence interval of white noise stationarity. This statement is confirmed by the Dickey Fuller Test
 
     ```{r}
     # Plotting the ACF and PACF
@@ -97,26 +101,26 @@ library(lmtest)
     ```{r}
     bitcoin_log_returns <- diff(log(bitcoin_ts))
     plot(bitcoin_log_returns, type = "l", main = "Negative Log Returns of Bitcoin Prices", 
-         ylab = "Negative Log Returns", xlab = "Time", col = "blue")
+         ylab = "Negative Log Returns", xlab = "Time", col = "#62A39F")
     ```
 
     This graph suggest us that the negative logaritmic returns are more similar to a stationary data base than the original one.
 
     ```{r}
-    plot(bitcoin_ts, type = "l", col = "red", lwd = 2, 
+    plot(bitcoin_ts, type = "l", col = "#1CADE4", lwd = 2, 
          main = "Bitcoin Prices and Negative Log Returns", 
          ylab = "Bitcoin Prices", xlab = "Time")
 
     # Add the second series (negative log returns) on a secondary axis
     par(new = TRUE)
-    plot(bitcoin_log_returns, type = "l", col = "blue", lwd = 2, axes = FALSE, 
+    plot(bitcoin_log_returns, type = "l", col = "#62A39F", lwd = 2, axes = FALSE, 
          xlab = "", ylab = "")
     axis(side = 4) # Add axis on the right side
     mtext("Negative Log Returns", side = 4, line = 3) # Label for the secondary axis
 
     # Add a legend
     legend("topright", legend = c("Bitcoin Prices", "Negative Log Returns"), 
-           col = c("red", "blue"), lty = 1, lwd = 2)
+           col = c("#1CADE4", "#62A39F"), lty = 1, lwd = 2)
     ```
 
     When we plot it together, it is easy to see how the logaritmic data set is closer to what we can call stationarity.
@@ -126,23 +130,23 @@ library(lmtest)
     ```{r}
     # Plot Histogram of negative log returns
     hist(bitcoin_log_returns, breaks = 50, main = "Histogram of Negative Log Returns",
-         xlab = "Negative Log Returns", col = "lightblue", border = "black", probability = TRUE)
+         xlab = "Negative Log Returns", col = "#62A39F", border = "black", probability = TRUE)
 
 
     # QQ-Plot to check for normality
     qqnorm(bitcoin_log_returns, main = "QQ-Plot of Negative Log Returns")
-    qqline(bitcoin_log_returns, col = "blue", lwd = 2)
+    qqline(bitcoin_log_returns, col = "#62A39F", lwd = 2)
 
 
     ```
 
-    The histogram suggests a normal distributions while the QQplot shows some desviations at the tails that make us believe that there could be some problems with the distribution.
+    The histogram suggests a normal distributions while the QQplot shows some desviations at the tails that make us believe that there could be some problems with the normality.
 
     ```{r}
     print(ad.test(bitcoin_log_returns))
     ```
 
-    This test helps us to confirm our observation about the normal distribution. As the p value is lover than 5% we can reject the normality and confirm that the negative log returns are not normally distributed.
+    This test helps us to confirm our observation about the normal distribution. As the p value is lower than 5% we can reject the normality and confirm that the negative log returns are not normally distributed.
 
 4.  **Fit a t-distribution to the negative log returns using fitdistr(). Using a QQ-plot, decide whether the t is better than with a Normal distribution, based on your answer in (3).**
 
@@ -159,7 +163,7 @@ library(lmtest)
                      frequency = 1440)
 
     qqnorm(fit_t_dis_ts, main = "QQ-Plot of Negative Log t Returns")
-    qqline(fit_t_dis_ts, col = "blue", lwd = 2)
+    qqline(fit_t_dis_ts, col = "#62A39F", lwd = 2)
 
     ```
 
