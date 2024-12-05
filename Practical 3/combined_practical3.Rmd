@@ -557,6 +557,8 @@ However, since the underlying distribution is known to be non-normal, the parame
 By applying the Peaks Over Threshold (POT) method using the Open prices, we've estimated the Value at Risk (VaR) and Expected Shortfall (ES) for extreme events in the Nasdaq Composite Index.
 This method provides an accurate and robust assessment of risk for extreme losses.
 
+### 4.2.1. POT Parametric
+
 **Threshold Selection**
 
 The choice of threshold is crucial in the POT method.
@@ -755,6 +757,83 @@ ggplot(cumulative_returns, aes(x = Date, y = Cumulative_Return, color = Strategy
 ```
 
 The POT-based stop-loss strategy significantly outperforms the non-stop-loss approach in terms of long-term cumulative returns, highlighting its practicality for managing extreme risk.
+
+### 4.2.2. POT Historic
+
+```{r}
+# Define the threshold (e.g., 95th percentile of negative returns)
+threshold <- quantile(-raw_data$Return, 0.95, na.rm = TRUE)
+
+# Print the selected threshold
+cat("Selected Threshold:", threshold, "\n")
+
+```
+
+```{r}
+# Extract excesses over the threshold
+excesses <- -raw_data$Return[-raw_data$Return > threshold] - threshold
+
+# Print the first few exceedances
+cat("Excesses over the threshold:\n")
+print(head(excesses))
+
+```
+
+Calculating the VaR historical with POT
+
+```{r}
+# Define confidence levels
+confidence_levels <- c(0.99, 0.995, 0.999)
+
+# Calculate Historical VaR using POT
+historical_var_pot <- sapply(confidence_levels, function(cl) {
+  quantile(excesses, probs = cl, na.rm = TRUE) + threshold  # Add back the threshold
+})
+
+# Print the Historical VaR results
+historical_var_pot_df <- data.frame(
+  Confidence_Level = paste0(confidence_levels * 100, "%"),
+  Historical_VaR_POT = -historical_var_pot  # Convert back to negative returns
+)
+
+```
+
+Calculating ES Historical with POT
+
+```{r}
+# Calculate Historical ES using POT
+historical_es_pot <- sapply(1:length(confidence_levels), function(i) {
+  var_threshold <- historical_var_pot[i] - threshold  # Find the excess threshold
+  mean(excesses[excesses >= var_threshold], na.rm = TRUE) + threshold  # Add back the threshold
+})
+
+# Add ES to the DataFrame
+historical_var_pot_df$Historical_ES_POT <- -historical_es_pot  # Convert back to negative returns
+
+```
+
+The table presents the **Historical VaR** and **Historical ES** calculated using the Peaks Over Threshold (POT) method at different confidence levels (99%, 99.5%, and 99.9%).
+The **VaR values** increase as the confidence level rises, reflecting higher potential losses as the analysis focuses on more extreme events.
+
+The **ES value** captures the average of these extreme losses, which is slightly worse than the 99.9% VaR.
+These results provide a conservative and realistic estimate of potential losses, making the Historical POT approach useful for assessing extreme risk scenarios without relying on parametric assumptions.
+
+```{r}
+# Combine results into a DataFrame
+historical_var_pot_df <- data.frame(
+  Confidence_Level = paste0(confidence_levels * 100, "%"),
+  Historical_VaR_POT = -historical_var_pot,  # Convert back to negative returns
+  Historical_ES_POT = -historical_es_pot    # Convert back to negative returns
+)
+
+# Print the final results
+print("Historical VaR and ES using POT:")
+print(historical_var_pot_df)
+```
+
+The VaR grows as the confidence level increases, which is expected because higher confidence levels capture rarer, more extreme events.
+The 99% VaR indicates that losses will not exceed 6.37% on 99 out of 100 trading days, while the ES shows that when losses exceed the VaR, the average loss is 6.88%.
+As confidence levels increase, the VaR captures progressively worse losses (up to 6.83% at 99.9% confidence), showing the potential for larger losses in rarer scenarios.
 
 ### Models Comparison
 
