@@ -30,6 +30,9 @@ library(extRemes)
 library(lubridate) 
 library(evir)
 library(extRemes)
+library(ismev)
+library(tidyr)             
+
 ```
 
 ```{r}
@@ -836,82 +839,91 @@ The 99% VaR indicates that losses will not exceed 6.37% on 99 out of 100 trading
 As confidence levels increase, the VaR captures progressively worse losses (up to 6.83% at 99.9% confidence), showing the potential for larger losses in rarer scenarios.
 
 ### Models Comparison
-
-1.  Historical VaR: estimates the worst case loss based on historical returns, it is simple and reflects historical market behavior, however it assumes the future will behave as the past and does not consider the extreme tail behavior beyond the historical range.
-2.  Parametric VaR: uses statistical assumptions to estimate the worst case loss, instead of using historical data. It is useful for stable markets with normally distributed returns, however the assumption for normality may underestimate tail risks.
-3.  Expected Shortfall: estimates the average loss in the worst case scenario, when losses exceed the VaR threshold. It considers tail risks beyond VaR, so relies on the same data or assumptions as the VaR model (same issues). It can also be overly conservative.
-4.  Block Maxima Model: groups data into fixed time intervals and extracts the largest loss in each block. It is useful because it focuses on extreme events without considering a specific threshold. However, it only extracts one value per block, other extreme values are ignored.
-5.  Peaks Over Threshold Method: focuses only on extreme losses that exceed a certain threshold. It provides more accurate estimates of tail risks for extreme events and generates VaR and ES for very high confiedence levels. However, selecting a threshold requires a lot of attentions.
-
-Previously, we determined that parametric VaR was the less conservative and hence the more realistic, especially for a 99% confidence level.
-POT is more flexible and can accurately predict both frequency and severity of extreme losses, specially for rare events.
-While Block Maxima focuses only on the maximum loss in each block and discards smaller tail losses.
-In order to determine which one is better between Block Maxima and POT:
-
 ```{r}
+# Define confidence levels
+confidence_levels <- c(0.95, 0.99, 0.999)
 
-return_periods <- c(1, 2, 5, 10, 20, 50, 100)
+# Step 1: Block Maxima (GEV) Model
+gev_var_es <- function(location, scale, shape, confidence_level) {
+  # Calculate VaR
+  VaR <- location + (scale / shape) * ((-log(1 - confidence_level))^(-shape) - 1)
+  
+  # Calculate ES
+  ES <- location + (scale / shape) * (
+    (1 / (1 - shape)) * ((-log(1 - confidence_level))^(-shape)) - 1
+  )
+  
+  return(list(VaR = -VaR, ES = -ES))  # Return negative values to reflect losses
+}
 
-gev_fit <- fevd(block_maxima_weekly$BlockMax, type = "GEV")
+gev_params <- gev_fit_weekly$results$par
+location <- gev_params["location"]
+scale <- gev_params["scale"]
+shape <- gev_params["shape"]
 
-gev_params <- gev_fit$results$par
-mu <- gev_params["location"]
-sigma <- gev_params["scale"]
-xi <- gev_params["shape"]
-
-gev_return_levels <- sapply(return_periods, function(T) {
-  mu - (sigma / xi) * (1 - (-log(1 - 1/T))^(-xi))
-})
-
-u <- 2.5
-gpd_fit <- gpd(-raw_data$Return, threshold = u)
-
-xi_pot <- gpd_fit$par.ests["xi"]
-beta_pot <- gpd_fit$par.ests["beta"]
-
-pot_return_levels <- sapply(return_periods, function(T) {
-  u + (beta_pot / xi_pot) * ((T * sum(raw_data$Return > u) / length(raw_data$Return))^xi_pot - 1)
-})
-
-comparison_df <- data.frame(
-  ReturnPeriod = return_periods,
-  BlockMaxima = gev_return_levels,
-  POT = pot_return_levels
+gev_results <- data.frame(
+  Confidence_Level = confidence_levels,
+  GEV_VaR = sapply(confidence_levels, function(cl) gev_var_es(location, scale, shape, cl)$VaR),
+  GEV_ES = sapply(confidence_levels, function(cl) gev_var_es(location, scale, shape, cl)$ES)
 )
 
-print(comparison_df)
+# Step 2: Peaks Over Threshold (POT) Model
+N <- length(raw_data$Return)
+N_exc <- sum(-raw_data$Return > u)  # Number of exceedances
+beta <- as.numeric(gpd_fit$par.ests["beta"])
+xi <- as.numeric(gpd_fit$par.ests["xi"])
 
-ggplot(comparison_df, aes(x = ReturnPeriod)) +
-  geom_line(aes(y = BlockMaxima, color = "Block Maxima"), size = 1) +
-  geom_line(aes(y = POT, color = "POT"), size = 1) +
+VaR_POT <- sapply(confidence_levels, function(p) {
+  u + (beta / xi) * (((N_exc / (N * (1 - p)))^xi - 1))
+})
+
+ES_POT <- sapply(1:length(confidence_levels), function(i) {
+  p <- confidence_levels[i]
+  VaR_p <- u + (beta / xi) * (((N_exc / (N * (1 - p)))^xi - 1))
+  (VaR_p / (1 - xi)) + ((beta - xi * u) / (1 - xi))
+})
+
+pot_results <- data.frame(
+  Confidence_Level = confidence_levels,
+  POT_VaR = -VaR_POT,  # Convert back to negative returns
+  POT_ES = -ES_POT     # Convert back to negative returns
+)
+
+# Step 3: Combine Results
+comparison <- gev_results %>%
+  left_join(pot_results, by = "Confidence_Level") %>%
+  rename(
+    GEV_VaR = GEV_VaR,
+    GEV_ES = GEV_ES,
+    POT_VaR = POT_VaR,
+    POT_ES = POT_ES
+  )
+
+# Step 4: Visualization
+comparison_long <- comparison %>%
+  pivot_longer(cols = -Confidence_Level, names_to = "Metric", values_to = "Value")
+
+ggplot(comparison_long, aes(x = factor(Confidence_Level), y = Value, fill = Metric)) +
+  geom_bar(stat = "identity", position = "dodge") +
   labs(
-    title = "Return Levels Comparison: Block Maxima vs POT",
-    x = "Return Period (Years)",
-    y = "Return Level"
+    title = "Comparison of VaR and ES for GEV and POT Models",
+    x = "Confidence Level",
+    y = "Value",
+    fill = "Metric"
   ) +
-  theme_minimal() +
-  scale_color_manual(values = c("Block Maxima" = "#2683C6", "POT" = "#42BA97"))
+  theme_minimal()
 
-
+# Print Results
+print("Comparison of VaR and ES between GEV and POT Models:")
+print(comparison)
 ```
+Looking at the results from the comparison between GEV and POT models' VaR and ES, it is clear that POT model captures more extreme losses than GEV, which may be useful for risk averse scenarios. GEV model may be underestimating the risks given that it only considers block maxima, while POT is considering ALL exceedances above the threshold, making the model more sensitive to extreme events. 
 
-Looking at the table, Block Maxima model predicts higher return levels than the POT model, especially for extreme periods like 50 and beyond.
-POT predicts more moderate estimates of return levels.
-This is also shown in the graph, where POT has a curve which grows less sharply than Block Maxima, which suggests more stable and gradual increase in return levels.
-In this sense, Block Maxima overestimates extreme values due to the few extreme events it considers for the model, so POT provides more stable estimates, which makes it a more reliable model for financial risk measurements.
+Given these results, for three different confidence intervals, POT model is better than GEV, especially for financial events which require a more rigourous analysis rather than the simplicity GEV offers. 
 
-Conclusion POT\>Block Maxima\> Parametric VaR, in terms of capturing frequency and severity and balancing risk estimation and conservatism.
+### Conclusion:
 
-### Recommendations:
+In order to evaluate extreme risks in the Nasdaq Composite Index using Extreme Value Theory, two models were implemented: Block Maxima (GEV), which focuses on capturing the largest loss in blocks and Peaks Over Threshold (POT), which analyzes losses exceeding a threshold. Through the Stop Loss Strategy, POT models demonstrated its ability to reduce losses during volatile periods, specifically in 2022. 
+Both models provided VaR and ES estimates for different confidence levels in order to determine which one is better. The results demonstrate POT model performs better for financial events. GEV provides a simple summary within predefined time blocks, so it underestimates extreme events because it only considers the largest loss within each block. This model is more appropriate for lower risk environments which require computational simplicity. In the other hand, POT is more sensitive to extreme events so it produced more conservative VaR and ES estimates, especially for 99% and 99.9% confidence levels. This model works better for volatile environments such as the financial one. 
 
-1.  Concerning the Parametric VaR, the model is easy to compute and understands and works well with large data sets, however it assumes normality of returns which may not be realistic.This model is recommended for stable markets where the return distribution is normal.
-    It can also be be complemented with ES.
-    The expected shortfall model should be used with careful attention given that it is overly conservative and could lead to mistakes in the risk management decisions.
 
-2.  Peaks over Threshold captures a larger range of extreme values because it uses the GDP and uses ALL exceedances above threshold.
-    However, we recommend careful selection of the threshold to avoid bias results.
-    This model is the most accurate for extreme events, so in order to have a good threshold selection we recommend the Mean Excess Plot as a diagnostic tool.
-
-3.  Block Maxima is a useful model when data sets have periodic maxima or has extreme events at fixed periods.
-    However, it only focuses on these values and ignores other possible data points.
-    We recommend this model for climatology or natural disasters but not for assessing financial risks due to the volatility of this type of events.
