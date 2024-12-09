@@ -1893,7 +1893,14 @@ ggplot(comparison_long, aes(x = factor(Confidence_Level), y = Value, fill = Metr
     y = "Value",
     fill = "Metric"
   ) +
+  scale_fill_manual(values = c(
+    "GEV_ES" = "#3E8853",
+    "GEV_VaR" = "#1CADE4",
+    "POT_ES" = "#27CED7",
+    "POT_VaR" = "#42BA97"
+  )) +
   theme_minimal()
+
 
 print("Comparison of VaR and ES between GEV and POT Models:")
 print(comparison)

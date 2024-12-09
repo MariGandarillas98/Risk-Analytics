@@ -29,7 +29,7 @@ rain_df$Date <- as.Date(rain_df$Date, format = "%m/%d/%Y")
 
 ```{r, include=TRUE}
 daily_precipitation_histogram <- ggplot(rain_df, aes(x = Precipitation)) +
-  geom_histogram(binwidth = 5, fill = "blue", color = "blue", alpha = 0.7) +
+  geom_histogram(binwidth = 5, fill = "#3E8853", color = "#3E8853", alpha = 0.7) +
   labs(
     title = "Histogram of Daily Precipitation in Lausanne",
     x = "Daily Precipitation (mm)",
@@ -38,7 +38,6 @@ daily_precipitation_histogram <- ggplot(rain_df, aes(x = Precipitation)) +
   theme_minimal()
 
 ggsave("daily_precipitation_histogram.png", plot = daily_precipitation_histogram, width = 8, height = 6)
-
 ```
 
 According to the histogram, it appears that the data could fit into a Gumbel Distribution. There is a rapid decay in the frequency of observations and the Gumbel distribution can model this behavior well and also considering that we are focusing on the extreme heavy rainfall events.
@@ -54,7 +53,7 @@ yearly_max <- rain_df %>%
   summarize(MaxPrecipitation = max(Precipitation, na.rm = TRUE))
 
 histogram_plot <- ggplot(yearly_max, aes(x = MaxPrecipitation)) +
-  geom_histogram(binwidth = 5, fill = "blue", color = "blue", alpha = 0.7) +
+  geom_histogram(binwidth = 5, fill = "#1CADE4", color = "#1CADE4", alpha = 0.7) +
   labs(
     title = "Histogram of Yearly Maximum Precipitation in Lausanne (1930 - 2014)",
     x = "Maximum Precipitation (mm)",
@@ -92,10 +91,10 @@ predictions <- predict(linear_model, newdata = future_years, interval = "confide
 future_predictions <- cbind(future_years, predictions)
 
 ggplot() +
-  geom_point(data = yearly_max, aes(x = Year, y = MaxPrecipitation), color = "blue") +
-  geom_smooth(data = yearly_max, aes(x = Year, y = MaxPrecipitation), method = "lm", color = "red", se = FALSE) +
-  geom_line(data = future_predictions, aes(x = Year, y = fit), color = "green") +
-  geom_ribbon(data = future_predictions, aes(x = Year, ymin = lwr, ymax = upr), alpha = 0.2, fill = "green") +
+  geom_point(data = yearly_max, aes(x = Year, y = MaxPrecipitation), color = "#1CADE4") +
+  geom_smooth(data = yearly_max, aes(x = Year, y = MaxPrecipitation), method = "lm", color = "#27CED7", se = FALSE) +
+  geom_line(data = future_predictions, aes(x = Year, y = fit), color = "#42BA97") +
+  geom_ribbon(data = future_predictions, aes(x = Year, ymin = lwr, ymax = upr), alpha = 0.2, fill = "#42BA97") +
   labs(
     title = "Linear Model for Yearly Maximum Precipitation with Predictions",
     x = "Year",
@@ -145,8 +144,8 @@ return_level_df <- data.frame(
 )
 
 plot <- ggplot() +
-  geom_point(data = return_level_df, aes(x = Year, y = MaxPrecipitation), color = "blue", size = 3) +
-  geom_line(data = return_level_df, aes(x = Year, y = Predicted_10yr_Return_Level), color = "red", linewidth = 1.2) +
+  geom_point(data = return_level_df, aes(x = Year, y = MaxPrecipitation), color = "#27CED7", size = 3) +
+  geom_line(data = return_level_df, aes(x = Year, y = Predicted_10yr_Return_Level), color = "#62A39F", linewidth = 1.2) +
   labs(
     title = "10-Year Return Level Predictions vs Historical Yearly Max Precipitation",
     x = "Year",
