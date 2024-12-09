@@ -59,7 +59,12 @@ histogram_plot <- ggplot(yearly_max, aes(x = MaxPrecipitation)) +
     x = "Maximum Precipitation (mm)",
     y = "Frequency"
   ) +
-  theme_minimal()
+  theme_minimal() + # Ensures a clean, white background
+  theme(
+    plot.title = element_text(hjust = 0.5), # Center-align the title
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10)
+  )
 
 ggsave("yearly_max_precipitation_histogram.png", plot = histogram_plot, width = 8, height = 6)
 
@@ -90,9 +95,9 @@ predictions <- predict(linear_model, newdata = future_years, interval = "confide
 
 future_predictions <- cbind(future_years, predictions)
 
-ggplot() +
-  geom_point(data = yearly_max, aes(x = Year, y = MaxPrecipitation), color = "#1CADE4") +
-  geom_smooth(data = yearly_max, aes(x = Year, y = MaxPrecipitation), method = "lm", color = "#27CED7", se = FALSE) +
+precipitation_plot <- ggplot() +
+  geom_point(data = yearly_max, aes(x = as.numeric(Year), y = MaxPrecipitation), color = "#1CADE4") +
+  geom_smooth(data = yearly_max, aes(x = as.numeric(Year), y = MaxPrecipitation), method = "lm", color = "#27CED7", se = FALSE) +
   geom_line(data = future_predictions, aes(x = Year, y = fit), color = "#42BA97") +
   geom_ribbon(data = future_predictions, aes(x = Year, ymin = lwr, ymax = upr), alpha = 0.2, fill = "#42BA97") +
   labs(
@@ -100,7 +105,14 @@ ggplot() +
     x = "Year",
     y = "Maximum Precipitation (mm)"
   ) +
-  theme_minimal() 
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10)
+  )
+
+ggsave("linear_model_precipitation_predictions.png", plot = precipitation_plot, width = 10, height = 6)
 ```
 This approach is clearly not reasonable. As stated before, the linear model is not accurate because the predictor, Year, is not statistically significant, and the model has a low explanatory power (as indicated by the low R-squared value). It is not appropriate to assume that maximum precipitation levels will increase each year simply because time has passed. Precipitation levels are influenced by numerous other significant factors (such as climate patterns, atmospheric conditions, and environmental changes) that are not accounted for in this simple model. Therefore, relying on Year alone as a predictor of future precipitation is misleading and oversimplified.
 
@@ -159,7 +171,7 @@ ggsave("plot2_6.png", plot = plot, width = 7, height = 7)
 
 ```
 
-The blue dots represent the observed maximum precipitation for each year, while the red line represents the 10-year return level predicted by the constant-parameter GEV model. The horizontal nature of the red line reflects the assumption of a constant location parameter, meaning the threshold for extreme events does not change over time. While the observed blue points vary from year to year, there is no evidence of an increasing trend in extreme precipitation based on this model.
+The blue dots represent the observed maximum precipitation for each year, while the green line represents the 10-year return level predicted by the constant-parameter GEV model. The horizontal nature of the red line reflects the assumption of a constant location parameter, meaning the threshold for extreme events does not change over time. While the observed blue points vary from year to year, there is no evidence of an increasing trend in extreme precipitation based on this model.
 
 ###g) Results for both the linear model predictionand the GEV approach
 ```{r setup, include=TRUE}
