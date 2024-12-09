@@ -70,7 +70,7 @@ The majority of the yearly maximum precipitation values are clustered between 40
 gumbel <- fgev(yearly_max$MaxPrecipitation, shape = 0)
 frechet <- fgev(yearly_max$MaxPrecipitation)
 ```
-By examining the scale parameters of the three distributions, which indicate the variability of the data, we can observe that the Frechet distribution has the smallest scale parameter (9.97), closely followed by the Gumbel distribution (10.30), both indicating less variation in the extreme precipitation events. Both the Gumbel and Frechet distributions show a typical yearly maximum precipitation around 48 mm, which is consistent with what was observed in the histogram. Although both distributions have similar deviance values, the Frechet distribution shows the lowest deviance (666.94), compared to the Gumbel distribution (668.33), suggesting that Frechet provides the best fit for the data. However, the Gumbel distribution also performs reasonably well, and while the Frechet is the better fit, Gumbel remains a valid option for modeling the yearly maximum precipitation events.
+By examining the scale parameters of the distributions, which indicate the variability of the data, we can observe that the Frechet distribution has the smallest scale parameter (9.97), closely followed by the Gumbel distribution (10.30), both indicating less variation in the extreme precipitation events. Both the Gumbel and Frechet distributions show a typical yearly maximum precipitation around 48 mm, which is consistent with what was observed in the histogram. Although both distributions have similar deviance values, the Frechet distribution shows the lowest deviance (666.94), compared to the Gumbel distribution (668.33), suggesting that Frechet provides the best fit for the data. However, the Gumbel distribution also performs reasonably well, and while the Frechet is the better fit, Gumbel remains a valid option for modeling the yearly maximum precipitation events.
 
 ###c) Linear model to the yearly maximum precipitation values and prediction for the next 10 years:
 ```{r setup, include=TRUE}
@@ -101,19 +101,15 @@ ggplot() +
     x = "Year",
     y = "Maximum Precipitation (mm)"
   ) +
-  theme_minimal() +
-  ggsave("debug_plot.png")
-
+  theme_minimal() 
 ```
 This approach is clearly not reasonable. As stated before, the linear model is not accurate because the predictor, Year, is not statistically significant, and the model has a low explanatory power (as indicated by the low R-squared value). It is not appropriate to assume that maximum precipitation levels will increase each year simply because time has passed. Precipitation levels are influenced by numerous other significant factors (such as climate patterns, atmospheric conditions, and environmental changes) that are not accounted for in this simple model. Therefore, relying on Year alone as a predictor of future precipitation is misleading and oversimplified.
 
 ###d) GEV with constant parameters vs. GEV model with time varying location parameter
 ```{r setup, include=TRUE}
-# Fit GEV model with constant parameters:
 gev_constant <- fevd(yearly_max$MaxPrecipitation, type = "GEV")
 summary(gev_constant)
 
-# Fit GEV model with time-varying location parameter
 gev_time_var <- fevd(yearly_max$MaxPrecipitation, location.fun = ~ Year, data = yearly_max, type = "GEV")
 summary(gev_time_var)
 ```

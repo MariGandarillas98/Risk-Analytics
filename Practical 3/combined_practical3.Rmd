@@ -840,20 +840,17 @@ As confidence levels increase, the VaR captures progressively worse losses (up t
 
 ### Models Comparison
 ```{r}
-# Define confidence levels
 confidence_levels <- c(0.95, 0.99, 0.999)
 
-# Step 1: Block Maxima (GEV) Model
 gev_var_es <- function(location, scale, shape, confidence_level) {
-  # Calculate VaR
+
   VaR <- location + (scale / shape) * ((-log(1 - confidence_level))^(-shape) - 1)
   
-  # Calculate ES
   ES <- location + (scale / shape) * (
     (1 / (1 - shape)) * ((-log(1 - confidence_level))^(-shape)) - 1
   )
   
-  return(list(VaR = -VaR, ES = -ES))  # Return negative values to reflect losses
+  return(list(VaR = -VaR, ES = -ES))  
 }
 
 gev_params <- gev_fit_weekly$results$par
@@ -867,9 +864,8 @@ gev_results <- data.frame(
   GEV_ES = sapply(confidence_levels, function(cl) gev_var_es(location, scale, shape, cl)$ES)
 )
 
-# Step 2: Peaks Over Threshold (POT) Model
 N <- length(raw_data$Return)
-N_exc <- sum(-raw_data$Return > u)  # Number of exceedances
+N_exc <- sum(-raw_data$Return > u)  
 beta <- as.numeric(gpd_fit$par.ests["beta"])
 xi <- as.numeric(gpd_fit$par.ests["xi"])
 
@@ -885,11 +881,10 @@ ES_POT <- sapply(1:length(confidence_levels), function(i) {
 
 pot_results <- data.frame(
   Confidence_Level = confidence_levels,
-  POT_VaR = -VaR_POT,  # Convert back to negative returns
-  POT_ES = -ES_POT     # Convert back to negative returns
+  POT_VaR = -VaR_POT,  
+  POT_ES = -ES_POT     
 )
 
-# Step 3: Combine Results
 comparison <- gev_results %>%
   left_join(pot_results, by = "Confidence_Level") %>%
   rename(
@@ -899,7 +894,6 @@ comparison <- gev_results %>%
     POT_ES = POT_ES
   )
 
-# Step 4: Visualization
 comparison_long <- comparison %>%
   pivot_longer(cols = -Confidence_Level, names_to = "Metric", values_to = "Value")
 
@@ -913,7 +907,6 @@ ggplot(comparison_long, aes(x = factor(Confidence_Level), y = Value, fill = Metr
   ) +
   theme_minimal()
 
-# Print Results
 print("Comparison of VaR and ES between GEV and POT Models:")
 print(comparison)
 ```
