@@ -8,6 +8,7 @@ date: "2024-10-14"
 ```{r setup, include=FALSE}
 library(here)
 library(readxl)
+library(readr)
 library(ggplot2)
 library(stringr)
 library(fitdistrplus)
@@ -18,46 +19,58 @@ library(ismev)
 ```
 
 ```{r, include=TRUE}
-rain_df <- read_excel(here("Precipitation_lausanne_full.xlsx"))
+rain_df <- read_csv("Precipitation_lausanne_full.csv")
+rain_df$Date <- as.Date(rain_df$Date, format = "%m/%d/%Y")
+
+
 ```
 
 ###a) Histogram of the daily precipitation values: 
 
 ```{r, include=TRUE}
-ggplot(rain_df, aes(x = Precipitation)) +
+daily_precipitation_histogram <- ggplot(rain_df, aes(x = Precipitation)) +
   geom_histogram(binwidth = 5, fill = "blue", color = "blue", alpha = 0.7) +
-  labs(title = "Histogram of Daily Precipitation in Lausanne",
-       x = "Daily Precipitation (mm)",
-       y = "Frequency")
+  labs(
+    title = "Histogram of Daily Precipitation in Lausanne",
+    x = "Daily Precipitation (mm)",
+    y = "Frequency"
+  ) +
+  theme_minimal()
+
+ggsave("daily_precipitation_histogram.png", plot = daily_precipitation_histogram, width = 8, height = 6)
+
 ```
 
 According to the histogram, it appears that the data could fit into a Gumbel Distribution. There is a rapid decay in the frequency of observations and the Gumbel distribution can model this behavior well and also considering that we are focusing on the extreme heavy rainfall events.
 
 ###b) Yearly maximum values: 
 ```{r setup, include=TRUE}
-rain_df$Date <- as.Date(rain_df$Date)
-
 rain_df <- rain_df |> mutate(Year = format(Date, "%Y"))
+
+all_years <- data.frame(Year = as.character(1930:2014))
 
 yearly_max <- rain_df %>%
   group_by(Year) %>%
   summarize(MaxPrecipitation = max(Precipitation, na.rm = TRUE))
 
-ggplot(yearly_max, aes(x = MaxPrecipitation)) +
+histogram_plot <- ggplot(yearly_max, aes(x = MaxPrecipitation)) +
   geom_histogram(binwidth = 5, fill = "blue", color = "blue", alpha = 0.7) +
-  labs(title = "Histogram of Yearly Maximum Precipitation in Lausanne (1930 - 2014)",
-       x = "Maximum Precipitation (mm)",
-       y = "Frequency") +
+  labs(
+    title = "Histogram of Yearly Maximum Precipitation in Lausanne (1930 - 2014)",
+    x = "Maximum Precipitation (mm)",
+    y = "Frequency"
+  ) +
   theme_minimal()
-```
-The histogram illustrates the frequency of various maximum precipitation levels across different years. Notably, around 60 mm of precipitation was recorded as the maximum in approximately five different years. This level of precipitation also appears to be the most common yearly maximum. The graph provides valuable insight into the range of extreme precipitation levels that Lausanne has experienced, helping to identify the typical upper limits of rainfall the city can face on a yearly basis. 
 
+ggsave("yearly_max_precipitation_histogram.png", plot = histogram_plot, width = 8, height = 6)
+
+```
+The majority of the yearly maximum precipitation values are clustered between 40 and 70 mm, indicating that these values are typical for Lausanne's climate during the period analyzed. Precipitation levels exceeding 100 mm are rare, as seen by the few bars on the far right of the histogram.
 ```{r setup, include=TRUE}
-weibull <- fitdist(yearly_max$MaxPrecipitation, "weibull")
 gumbel <- fgev(yearly_max$MaxPrecipitation, shape = 0)
 frechet <- fgev(yearly_max$MaxPrecipitation)
 ```
-By examining the scale parameters of the three distributions, which indicate the variability of the data, we can observe that the Weibull distribution has the largest value (74.3), suggesting a higher degree of variability in the yearly maximum precipitation. On the other hand, the Frechet distribution has the smallest scale parameter (11.51), closely followed by the Gumbel distribution (13.12), both indicating less variation in the extreme precipitation events. Both the Gumbel and Frechet distributions show a typical yearly maximum precipitation around 56-57 mm, which is consistent with what was observed in the histogram. Although both distributions have similar deviance values, the Frechet distribution shows the lowest deviance (108.30), compared to the Gumbel distribution (110.23), suggesting that Frechet provides the best fit for the data. However, the Gumbel distribution also performs reasonably well, and while the Frechet is the better fit, Gumbel remains a valid option for modeling the yearly maximum precipitation events.
+By examining the scale parameters of the three distributions, which indicate the variability of the data, we can observe that the Frechet distribution has the smallest scale parameter (9.97), closely followed by the Gumbel distribution (10.30), both indicating less variation in the extreme precipitation events. Both the Gumbel and Frechet distributions show a typical yearly maximum precipitation around 48 mm, which is consistent with what was observed in the histogram. Although both distributions have similar deviance values, the Frechet distribution shows the lowest deviance (666.94), compared to the Gumbel distribution (668.33), suggesting that Frechet provides the best fit for the data. However, the Gumbel distribution also performs reasonably well, and while the Frechet is the better fit, Gumbel remains a valid option for modeling the yearly maximum precipitation events.
 
 ###c) Linear model to the yearly maximum precipitation values and prediction for the next 10 years:
 ```{r setup, include=TRUE}
@@ -66,9 +79,10 @@ yearly_max$Year <- as.numeric(yearly_max$Year)
 linear_model <- lm(MaxPrecipitation ~ Year, data = yearly_max)
 summary(linear_model)
 ```
-According to the coefficients, the intercept is not particularly useful in this context since we are not interested in knowing the precipitation when the year is 0, which is not meaningful. The coefficient for Year is 1.74, indicating that the maximum precipitation is expected to increase by approximately 1.74 mm per year. However, given that the p-value is higher than the standard significance level (0.05), we cannot conclude that Year is a significant predictor of maximum precipitation. This is further supported by the relatively low t-value for Year, suggesting weak evidence for its effect. Additionally, the model has low explanatory power, as reflected by the R-squared value of 22%, meaning that the model explains only a small portion of the variation in the data. This suggests that the linear model with Year as the regressor may not be appropriate for capturing the trends in yearly maximum precipitation.
+According to the coefficients, the intercept is not particularly useful in this context since we are not interested in knowing the precipitation when the year is 0, which is not meaningful. The coefficient for Year -.006, indicating that the maximum precipitation is expected to decrease by approximately .006 mm per year. However, given that the p-value is higher than the standard significance level (0.05), we cannot conclude that Year is a significant predictor of maximum precipitation. This is further supported by the relatively low t-value for Year, suggesting weak evidence for its effect. Additionally, the model has low explanatory power, as reflected by the R-squared, meaning that the model explains only a small portion of the variation in the data. This suggests that the linear model with Year as the regressor may not be appropriate for capturing the trends in yearly maximum precipitation.
 
 ```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
 any(is.na(yearly_max$Year))
 yearly_max <- yearly_max[!is.na(yearly_max$Year), ]
 future_years <- data.frame(Year = seq(max(yearly_max$Year) + 1, max(yearly_max$Year) + 10))
@@ -80,17 +94,16 @@ future_predictions <- cbind(future_years, predictions)
 ggplot() +
   geom_point(data = yearly_max, aes(x = Year, y = MaxPrecipitation), color = "blue") +
   geom_smooth(data = yearly_max, aes(x = Year, y = MaxPrecipitation), method = "lm", color = "red", se = FALSE) +
-  
   geom_line(data = future_predictions, aes(x = Year, y = fit), color = "green") +
-  
   geom_ribbon(data = future_predictions, aes(x = Year, ymin = lwr, ymax = upr), alpha = 0.2, fill = "green") +
-  
-  labs(title = "Linear Model for Yearly Maximum Precipitation with Predictions",
-       x = "Year",
-       y = "Maximum Precipitation (mm)") +
-  theme_minimal()
+  labs(
+    title = "Linear Model for Yearly Maximum Precipitation with Predictions",
+    x = "Year",
+    y = "Maximum Precipitation (mm)"
+  ) +
+  theme_minimal() +
+  ggsave("debug_plot.png")
 
-future_predictions
 ```
 This approach is clearly not reasonable. As stated before, the linear model is not accurate because the predictor, Year, is not statistically significant, and the model has a low explanatory power (as indicated by the low R-squared value). It is not appropriate to assume that maximum precipitation levels will increase each year simply because time has passed. Precipitation levels are influenced by numerous other significant factors (such as climate patterns, atmospheric conditions, and environmental changes) that are not accounted for in this simple model. Therefore, relying on Year alone as a predictor of future precipitation is misleading and oversimplified.
 
@@ -104,16 +117,21 @@ summary(gev_constant)
 gev_time_var <- fevd(yearly_max$MaxPrecipitation, location.fun = ~ Year, data = yearly_max, type = "GEV")
 summary(gev_time_var)
 ```
-The time-varying location model has a lower AIC/BIC than the constant-parameter model, suggesting that allowing the location parameter (mean of the distribution) to vary over time provides a better fit to the data compared to assuming a constant location. This indicates that the average of extreme precipitation values is changing over time—not simply increasing, as the constant model might imply, but also decreasing at times, which is more aligned with real-world variability. This highlights that extremes are not static and can fluctuate due to multiple factors beyond just the passage of time, making the time-varying model a more realistic representation.
+The constant-parameter model has a lower AIC/BIC than the  time-varying location model, suggesting that the average of extreme precipitation values is changing over time (not simply increasing), as the constant model might imply, but also decreasing at times, which is more aligned with real-world variability. This highlights that extremes are not static and can fluctuate due to multiple factors beyond just the passage of time, making the time-varying model a more realistic representation.
 
 ###e)Diagnostic plots of the GEV fit
 
 ```{r setup, include=TRUE}
-fitted_values <- fitted(gev_time_var)
+fitted_values <- fitted(gev_constant)
 
-residuals <- residuals(gev_time_var, type = "qq") 
-probability_plot <- plot(gev_time_var, type = "probprob", main = "Probability Plot")
-qq_plot <- plot(gev_time_var, type = "qq", main = "Q-Q Plot")
+png("probability_plot.png", width = 800, height = 600)
+plot(gev_constant, type = "probprob", main = "Probability Plot") 
+dev.off()  
+
+
+png("qq_plot.png", width = 800, height = 600) 
+plot(gev_constant, type = "qq", main = "Q-Q Plot")
+dev.off() 
 ```
 
 Using the probability plot, which compares the empirical probabilities from the data with the model's predicted probabilities, the points generally align along the diagonal. However, there are some deviations at the extremes, indicating that the model struggles to fit the most extreme values. This issue is also observed in the Q-Q plot, which further suggests that the model is not accurate for predicting extreme events. While the GEV model provides a better fit compared to the previous model, it still falls short in reliably predicting the most extreme precipitation events, particularly at the tails of the distribution.
@@ -121,41 +139,45 @@ Using the probability plot, which compares the empirical probabilities from the 
 ###f) Predict the 10-year return level: 
 
 ```{r setup, include=TRUE}
-return_level_10_year <- return.level(gev_time_var, return.period = 10)
-return_level_10_year
 
-time_varying_location <- fitted(gev_time_var)
+return_level_10_year <- return.level(gev_constant, return.period = 10)
 
 return_level_df <- data.frame(
-  Year = yearly_max$Year,
-  MaxPrecipitation = yearly_max$MaxPrecipitation,
-  Predicted_10yr_Return_Level = rep(return_level_10_year, length(yearly_max$Year))
+    Year = yearly_max$Year,
+    MaxPrecipitation = yearly_max$MaxPrecipitation,
+    Predicted_10yr_Return_Level = rep(return_level_10_year, length(yearly_max$Year))  
 )
 
-ggplot() +
+plot <- ggplot() +
   geom_point(data = return_level_df, aes(x = Year, y = MaxPrecipitation), color = "blue", size = 3) +
   geom_line(data = return_level_df, aes(x = Year, y = Predicted_10yr_Return_Level), color = "red", linewidth = 1.2) +
-  labs(title = "10-Year Return Level Predictions vs Historical Yearly Max Precipitation",
-       x = "Year",
-       y = "Precipitation (mm)") +
-  
+  labs(
+    title = "10-Year Return Level Predictions vs Historical Yearly Max Precipitation",
+    x = "Year",
+    y = "Precipitation (mm)"
+  ) +
+  scale_x_continuous(breaks = seq(min(return_level_df$Year), max(return_level_df$Year), by = 5)) + 
   theme_minimal()
+
+print(plot)
+ggsave("plot2_6.png", plot = plot, width = 7, height = 7)
+
 ```
 
-The blue dots represent the observed maximum precipitation for each year, while the red line represents the 10-year return level, which is the threshold expected to be exceeded once every 10 years on average. The upward trend of the red line indicates that the 10-year return level is increasing over time, suggesting that extreme precipitation events are becoming more severe, or that the threshold for a 1-in-10-year event is rising. 
+The blue dots represent the observed maximum precipitation for each year, while the red line represents the 10-year return level predicted by the constant-parameter GEV model. The horizontal nature of the red line reflects the assumption of a constant location parameter, meaning the threshold for extreme events does not change over time. While the observed blue points vary from year to year, there is no evidence of an increasing trend in extreme precipitation based on this model.
 
 ###g) Results for both the linear model predictionand the GEV approach
 ```{r setup, include=TRUE}
-return_level_10_gev <- return.level(gev_time_var, return.period = 10)
+return_level_10_gev <- return.level(gev_constant, return.period = 10)
 return_level_10_gev
 
-return_level_20_gev <- return.level(gev_time_var, return.period = 20)
+return_level_20_gev <- return.level(gev_constant, return.period = 20)
 return_level_20_gev
 
-return_level_50_gev <- return.level(gev_time_var, return.period = 50)
+return_level_50_gev <- return.level(gev_constant, return.period = 50)
 return_level_50_gev
 
-return_level_85_gev <- return.level(gev_time_var, return.period = 85)
+return_level_85_gev <- return.level(gev_constant, return.period = 85)
 return_level_85_gev
 
 historical_values <- yearly_max$MaxPrecipitation
@@ -188,24 +210,25 @@ exceed_85_linear
 
 ```
 
-As expected, for the 10-year return level using the GEV model, there is one observed value where the maximum precipitation exceeds the 10-year return level. The same holds true for the 20-year return level, while there are 0 exceedances for the 50-year and 85-year return levels. These results indicate that the GEV model is performing well, as it captures the frequency of extreme precipitation values accurately and in line with what is expected for rare events. In contrast, the linear model shows 0 exceedances across all return levels, meaning it is not properly accounting for extreme values. This suggests that the linear model fails to capture the tails of the distribution, making it unsuitable for predicting and modeling extreme events.
+As expected, for the 10-year return level using the GEV model, there are 6 historical values where the maximum precipitation exceeds the 10-year return level. For the 20-year return level, there are 4 exceedances, while there are 2 exceedances for the 50-year return level and 1 exceedance for the 85-year return level. These results indicate that the GEV model performs well, capturing the frequency of extreme precipitation values accurately and in line with what is expected for rare events.
+In contrast, the linear model shows 0 exceedances across all return levels, meaning it fails to account for extreme values. This suggests that the linear model is unsuitable for predicting and modeling extreme events, as it does not adequately capture the distribution's tails
 
 ###h)Return period of 100 mm of precipitation.
 ```{r setup, include=TRUE}
 threshold_precipitation <- 100
-params <- gev_time_var$results
-# Calculate the cumulative distribution function (CDF) for the threshold using the fitted model
+params <- gev_constant$results
+
 cdf_100 <- pevd(threshold_precipitation, loc = params$par[1], scale = params$par[2], shape = params$par[3], type = "GEV")
 
 return_period_100mm <- 1 / (1 - cdf_100)
 return_period_100mm
 ```
-Precipitation of 100 mm or more can occur once every 2.88 years. 
+Precipitation of 100 mm or more can occur once every 71.77 years. 
 
 ###i)Probability that there will be a day in the next year when the precipitation exceeds 150 mm.
 ```{r setup, include=TRUE}
 threshold_precipitation <- 150
-params <- gev_time_var$results
+params <- gev_constant$results
 
 cdf_150 <- pevd(threshold_precipitation, loc = params$par[1], scale = params$par[2], shape = params$par[3], type = "GEV")
 
@@ -218,4 +241,4 @@ prob_exceed_150_year <- 1 - prob_not_exceed_any_day
 prob_exceed_150_year
 
 ```
-There will be at least one day where precipitation exceeds 150 mm. 
+The probability of exceeding 150 mm on any day is .0642% and the probability of at least one day in the next year is 20.9%. 
