@@ -10,7 +10,6 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-install.packages(c("tseries", "urca", "forecast", "nortest", "MASS", "fpp3"))
 
 library(tseries)
 library(urca)
@@ -41,7 +40,7 @@ library(lmtest)
 
 ```{r}
 #Uploading the data set
-crypto<-read.csv("Crypto_data.csv")
+crypto<-read.csv("data/Crypto_data.csv")
 
 bitcoin_ts <- ts(crypto$Bitcoin, 
                  start = c(1),       
@@ -608,10 +607,11 @@ library(dplyr)
 library(extRemes)
 library(evd)
 library(ismev)
+library(POT)
 ```
 
 ```{r, include=TRUE}
-rain_df <- read_csv("Practical 2/Precipitation_lausanne_full.csv")
+rain_df <- read_csv("data/Precipitation_lausanne_full.csv")
 rain_df$Date <- as.Date(rain_df$Date, format = "%m/%d/%Y")
 ```
 
@@ -628,7 +628,6 @@ daily_precipitation_histogram <- ggplot(rain_df, aes(x = Precipitation)) +
   theme_minimal()
 
 ggsave("daily_precipitation_histogram.png", plot = daily_precipitation_histogram, width = 8, height = 6)
-
 ```
 
 According to the histogram, it appears that the data could fit into a Gumbel Distribution.
@@ -655,7 +654,6 @@ histogram_plot <- ggplot(yearly_max, aes(x = MaxPrecipitation)) +
   theme_minimal()
 
 ggsave("yearly_max_precipitation_histogram.png", plot = histogram_plot, width = 8, height = 6)
-
 ```
 
 The majority of the yearly maximum precipitation values are clustered between 40 and 70 mm, indicating that these values are typical for Lausanne's climate during the period analyzed.
@@ -742,7 +740,7 @@ This highlights that extremes are not static and can fluctuate due to multiple f
 fitted_values <- fitted(gev_constant)
 
 png("probability_plot.png", width = 800, height = 600)
-plot(gev_constant, type = "probprob", main = "Probability Plot") 
+plot(gev_constant, type = "probprob", main = "Probability Plot")
 dev.off()  
 
 
@@ -876,7 +874,7 @@ The probability of exceeding 150 mm on any day is .0642% and the probability of 
 ### Part 2: Peaks-over-threshold approach
 
 ```{r}
-rain_df <- read.csv("Precipitation_lausanne_full.csv")
+rain_df <- read.csv("data/Precipitation_lausanne_full.csv")
 ```
 
 #### 2.1 Display a time series plot of the daily precipitation across the data range
@@ -920,7 +918,6 @@ ggplot(rain_df, aes(x = Date, y = Precipitation)) +
        x = "Date",
        y = "Precipitation (mm)") +
   theme_minimal()
-
 ```
 
 #### 2.3 it a GPD for the data exceeding the threshold and draw a diagnostic plot. Is it a reasonable fit? (Hint: if not, you may reconsider the choice of the threshold)
@@ -1024,7 +1021,7 @@ The second hypothesis is that the threshold selection for the POT method (40) in
 #### 3.1 Upload the Geneva temperature data. Plot the data. Subset the data for the summer months (June to September).
 
 ```{r}
-temp_df <- read.csv("Geneva_temperature.csv")
+temp_df <- read.csv("data/Geneva_temperature.csv")
 ```
 
 ```{r}
@@ -1118,9 +1115,6 @@ This is very close to the raw data and indicates that the clustering of extreme 
 ### 1. Data Pre-processing
 
 ```{r, message =FALSE}
-install.packages(c("extRemes", "lubridate", "dplyr", "ggplot2", "kableExtra"))
-
-
 library("xts")
 library("quantmod")
 library(kableExtra)
@@ -1133,12 +1127,11 @@ library(lubridate)
 library(evir)
 library(extRemes)
 library(ismev)
-library(tidyr)             
-
+library(tidyr)
 ```
 
 ```{r}
-raw_data <- read.csv("INDEX_US_XNAS_COMP.csv")
+raw_data <- read.csv("data/INDEX_US_XNAS_COMP.csv")
 
 # Prepare for time-series
 raw_data$Date <- as.Date(raw_data$Date, format = "%m/%d/%Y")
@@ -1247,8 +1240,6 @@ gev_fit_weekly <- fevd(block_maxima_weekly$BlockMax, type = "GEV")
 # Step 3: Summarize GEV parameters
 gev_summary <- summary(gev_fit_weekly)
 print(gev_summary)
-
-
 ```
 
 The table shows the **weekly block maxima** (largest losses) for the first six weeks in the dataset:
@@ -1281,7 +1272,6 @@ ggplot(block_maxima_weekly, aes(x = as.Date(paste0(YearWeek, "-1"), format = "%Y
     y = "Block Maxima (Largest Losses)"
   ) +
   theme_minimal()
-
 ```
 
 The graph visualizes the weekly **largest losses** over time, highlighting periods of heightened market stress, such as in 2022, where weekly losses reached their most extreme values.
@@ -1447,7 +1437,6 @@ gpd_fit <- gpd(-raw_data$Return, threshold = u)
 
 # Summarize the fitted model
 kable(summary(gpd_fit))
-
 ```
 
 Estimating Value at Risk (VaR) and Expected Shortfall (ES)
@@ -1495,7 +1484,6 @@ VaR_POT_df$ES <- ES_POT
 
 # Display results
 kable(print(VaR_POT_df))
-
 ```
 
 The analysis highlights the increasing severity of potential losses as confidence levels rise, with VaR and ES growing more extreme at 99.9% confidence.
@@ -1512,7 +1500,6 @@ raw_data$Stop_Loss_POT_99 <- raw_data$Return <= raw_data$VaR_POT_99
 # Count the number of triggers
 num_triggers_POT_99 <- sum(raw_data$Stop_Loss_POT_99, na.rm = TRUE)
 cat("Number of stop-loss activations with POT at 99%:", num_triggers_POT_99, "\n")
-
 ```
 
 According to the next plot, which compares the cumulative returns of two strategies.
