@@ -72,7 +72,7 @@ fit <- fitgpd(exceedances, threshold)
 
 # Diagnostic plots to assess the fit
 par(mfrow = c(2, 2))
-plot(fit, npy = 1)
+plot(fit, npy = 365)
 ```
 
 With a threshold value of 40, we get the following diagnostic for our model:
@@ -109,16 +109,26 @@ print(return_levels)
 shape <- fit_extremes$results$par["shape"]
 scale <- fit_extremes$results$par["scale"]
 threshold <- fit_extremes$threshold
-
-# Define the precipitation level we are interested in
 precipitation_level <- 100
+# Compute the empirical exceedance rate above the chosen threshold
+exceed_rate <- sum(rain_df$Precipitation > threshold) / nrow(rain_df)  # daily fraction of exceedances
+# Convert to yearly exceedance rate (assuming ~365 days/year)
+yearly_exceedance_rate <- exceed_rate * 365
 
-# Calculate the return period using the general formula
-return_period_100mm <- 1 / ((1 / 365) * (1 + shape * ((precipitation_level - threshold) / scale))^(-1/shape))
+# Calculate the probability of exceeding 'precipitation_level' on any given day
+# Given that for y = precipitation_level - threshold:
+# P(X > precipitation_level) = exceed_rate * (1 + shape * (y/scale))^(-1/shape)
+y <- precipitation_level - threshold
+p_exceed_100mm <- exceed_rate * (1 + shape * (y / scale))^(-1/shape)
+
+# Convert this probability into a return period:
+# Return period in days = 1 / daily probability
+return_period_days <- 1 / p_exceed_100mm
 
 # Convert the return period from days to years
-return_period_years <- return_period_100mm / 365
-print(paste0(">100mm rain every ", return_period_years, " years"))
+return_period_years <- return_period_days / 365
+
+print(paste0(">100mm rain every ", round(return_period_years, 2), " years"))
 ```
 
 #### f) Using the fitted model, compute the probability that there will be a day in the next year when the precipitation exceeds 150 mm.
@@ -127,18 +137,20 @@ print(paste0(">100mm rain every ", return_period_years, " years"))
 # Define the precipitation level we are interested in (150 mm)
 precipitation_level_150 <- 150
 
-# Calculate the probability of exceeding 150 mm in the next year
-prob_150mm <- 1 - pgpd(precipitation_level_150 - threshold, scale = scale, shape = shape)
+# Probability that precipitation > threshold
+p_exceed <- mean(rain_df$Precipitation > threshold) 
+# Conditional probability above threshold for >150 mm
+p_conditional <- 1 - pgpd(precipitation_level_150 - threshold, scale = scale, shape = shape) 
+# Unconditional probability
+prob_150mm <- p_exceed * p_conditional
 
 # Print the probability
-print(paste0("Probability that there is a day with >150mm rain next year is ", prob_150mm, ", (= 0.007%)."))
+print(paste0("Probability that there is a day with >150mm rain next year is ", prob_150mm))
 ```
 
 #### g) Compare the results with the block maxima method. Explain the drawbacks and advantages of using the POT approach compared to the block maxima method. Which method do you prefer?
 
-```{r}
 
-```
 
 ## Part 3
 

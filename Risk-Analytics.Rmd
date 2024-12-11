@@ -3,7 +3,11 @@ title: "Combined practices"
 author: "Group 8"
 date: "2024-12-09"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 install.packages(c("tseries", "urca", "forecast", "nortest", "MASS"))
@@ -35,138 +39,142 @@ library(lmtest)
 
 #### 1.1 Read in the Bitcoin data from le Crypto data.csv. Then, assess the stationarity of the (raw) Bitcoin prices.
 
-    ```{r echo=FALSE}
-    #Uploading the data set
-    crypto<-read.csv("Crypto_data.csv")
+```{{r echo=FALSE}}
+#Uploading the data set
+crypto<-read.csv("Crypto_data.csv")
 
-    bitcoin_ts <- ts(crypto$Bitcoin, 
-                     start = c(1),       
-                     frequency = 1440)
+bitcoin_ts <- ts(crypto$Bitcoin, 
+                 start = c(1),       
+                 frequency = 1440)
 
 
 
-    plot(bitcoin_ts, type = "l", main = "Bitcoin Prices", xlab = "Time", col = "#2683C6")
+plot(bitcoin_ts, type = "l", main = "Bitcoin Prices", xlab = "Time", col = "#2683C6")
 
-    # Plotting the Q-Q plot
+# Plotting the Q-Q plot
 
-    qqnorm(bitcoin_ts, main = "Normal Q-Q Plot")
-    qqline(bitcoin_ts, col = "#2683C6")
-    ```
+qqnorm(bitcoin_ts, main = "Normal Q-Q Plot")
+qqline(bitcoin_ts, col = "#2683C6")
+```
 
-    The plots show that the distribution of the data base is not normal and a clear trend over the years. However, it is needed to review it in detail. Let's check it out in more detail
+The plots show that the distribution of the data base is not normal and a clear trend over the years. However, it is needed to review it in detail. Let's check it out in more detail
 
-    ```{r}
+```{r}
 
-    # Plotting the cumulative periodogram
-    cpgram(bitcoin_ts, main = "Cumulative Periodogram")
-    # Check for stationarity using Augmented Dickey-Fuller test
-    adf_test <- adf.test(crypto$Bitcoin)
-    print(adf_test)
-    if (adf_test$p.value > 0.05) {
-      cat("The time series is non-stationary. Differencing will be performed to achieve stationarity.\n") }
+# Plotting the cumulative periodogram
+cpgram(bitcoin_ts, main = "Cumulative Periodogram")
+# Check for stationarity using Augmented Dickey-Fuller test
+adf_test <- adf.test(crypto$Bitcoin)
+print(adf_test)
+if (adf_test$p.value > 0.05) {
+  cat("The time series is non-stationary. Differencing will be performed to achieve stationarity.\n") }
 
-    ```
+```
 
-    The cumulative periodogram shows clearly that the data base is not stationary as the observations are outside the confidence interval of white noise stationarity. This statement is confirmed by the Dickey Fuller Test
+The cumulative periodogram shows clearly that the data base is not stationary as the observations are outside the confidence interval of white noise stationarity. This statement is confirmed by the Dickey Fuller Test
 
-    ```{r}
-    # Plotting the ACF and PACF
-    par(mfrow = c(2, 2))
-    acf(bitcoin_ts, main = "ACF Plot")
-    pacf(bitcoin_ts, main = "PACF Plot")
-    par(mfrow = c(1, 1))
+```{r}
+# Plotting the ACF and PACF
+par(mfrow = c(2, 2))
+acf(bitcoin_ts, main = "ACF Plot")
+pacf(bitcoin_ts, main = "PACF Plot")
+par(mfrow = c(1, 1))
 
-    ```
+```
 
-    The no stationarty is confirmed by the PACF and ACF plots as they show clear patterns in both of them.
+The no stationarty is confirmed by the PACF and ACF plots as they show clear patterns in both of them.
 
-    ```{r}
-    # KPSS Test
-    kpss_test <- ur.kpss(bitcoin_ts)
-    summary(kpss_test)
-    ```
+```{r}
+# KPSS Test
+kpss_test <- ur.kpss(bitcoin_ts)
+summary(kpss_test)
+```
 
-    Finally, the KPSS test suggests that we can rejec the Ho of stationarity concluding that the prices of the Bitcoin are not stationary.
+Finally, the KPSS test suggests that we can rejec the Ho of stationarity concluding that the prices of the Bitcoin are not stationary.
 
 #### 1.2.Create a function to transform the Bitcoin prices into their negative log returns counterparts. Plot the latter series and assess their stationarity. To compare the series, also plot the negative log returns on a common scale.
 
-    ```{r}
-    bitcoin_log_returns <- diff(log(bitcoin_ts))
-    plot(bitcoin_log_returns, type = "l", main = "Negative Log Returns of Bitcoin Prices", 
-         ylab = "Negative Log Returns", xlab = "Time", col = "#62A39F")
-    ```
+```{{r}}
+bitcoin_log_returns <- diff(log(bitcoin_ts))
+plot(bitcoin_log_returns, type = "l", main = "Negative Log Returns of Bitcoin Prices", 
+     ylab = "Negative Log Returns", xlab = "Time", col = "#62A39F")
+```
 
-    This graph suggest us that the negative logaritmic returns are more similar to a stationary data base than the original one.
+This graph suggest us that the negative logaritmic returns are more similar to a stationary data base than the original one.
 
-    ```{r}
-    plot(bitcoin_ts, type = "l", col = "#1CADE4", lwd = 2, 
-         main = "Bitcoin Prices and Negative Log Returns", 
-         ylab = "Bitcoin Prices", xlab = "Time")
+```{r}
+plot(bitcoin_ts, type = "l", col = "#1CADE4", lwd = 2, 
+     main = "Bitcoin Prices and Negative Log Returns", 
+     ylab = "Bitcoin Prices", xlab = "Time")
 
-    # Add the second series (negative log returns) on a secondary axis
-    par(new = TRUE)
-    plot(bitcoin_log_returns, type = "l", col = "#62A39F", lwd = 2, axes = FALSE, 
-         xlab = "", ylab = "")
-    axis(side = 4) # Add axis on the right side
-    mtext("Negative Log Returns", side = 4, line = 3) # Label for the secondary axis
+# Add the second series (negative log returns) on a secondary axis
+par(new = TRUE)
+plot(bitcoin_log_returns, type = "l", col = "#62A39F", lwd = 2, axes = FALSE, 
+     xlab = "", ylab = "")
+axis(side = 4) # Add axis on the right side
+mtext("Negative Log Returns", side = 4, line = 3) # Label for the secondary axis
 
-    # Add a legend
-    legend("topright", legend = c("Bitcoin Prices", "Negative Log Returns"), 
-           col = c("#1CADE4", "#62A39F"), lty = 1, lwd = 2)
-    ```
+# Add a legend
+legend("topright", legend = c("Bitcoin Prices", "Negative Log Returns"), 
+       col = c("#1CADE4", "#62A39F"), lty = 1, lwd = 2)
+```
 
-    When we plot it together, it is easy to see how the logaritmic data set is closer to what we can call stationarity.
+When we plot it together, it is easy to see how the logaritmic data set is closer to what we can call stationarity.
 
 #### 1.3. Are the negative log returns normally distributed? Draw histograms, check QQ-plots and use an Anderson-Darling testing procedure to answer this question.
 
-    ```{r}
-    # Plot Histogram of negative log returns
-    hist(bitcoin_log_returns, breaks = 50, main = "Histogram of Negative Log Returns",
-         xlab = "Negative Log Returns", col = "#62A39F", border = "black", probability = TRUE)
+```{{r}}
+# Plot Histogram of negative log returns
+hist(bitcoin_log_returns, breaks = 50, main = "Histogram of Negative Log Returns",
+     xlab = "Negative Log Returns", col = "#62A39F", border = "black", probability = TRUE)
 
 
-    # QQ-Plot to check for normality
-    qqnorm(bitcoin_log_returns, main = "QQ-Plot of Negative Log Returns")
-    qqline(bitcoin_log_returns, col = "#62A39F", lwd = 2)
+# QQ-Plot to check for normality
+qqnorm(bitcoin_log_returns, main = "QQ-Plot of Negative Log Returns")
+qqline(bitcoin_log_returns, col = "#62A39F", lwd = 2)
 
 
-    ```
+```
 
-    The histogram suggests a normal distributions while the QQplot shows some desviations at the tails that make us believe that there could be some problems with the normality.
+The histogram suggests a normal distributions while the QQplot shows some desviations at the tails that make us believe that there could be some problems with the normality.
 
-    ```{r}
-    print(ad.test(bitcoin_log_returns))
-    ```
+```{r}
+print(ad.test(bitcoin_log_returns))
+```
 
-    This test helps us to confirm our observation about the normal distribution. As the p value is lower than 5% we can reject the normality and confirm that the negative log returns are not normally distributed.
+This test helps us to confirm our observation about the normal distribution. As the p value is lower than 5% we can reject the normality and confirm that the negative log returns are not normally distributed.
 
 #### 1.4. Fit a t-distribution to the negative log returns using fitdistr(). Using a QQ-plot, decide whether the t is better than with a Normal distribution, based on your answer in (3).
 
-    ```{r}
-    bitcoin_log_returns_nots <- crypto$Bitcoin[!is.nan(crypto$Bitcoin) & is.finite(crypto$Bitcoin)]
+```{{r}}
+bitcoin_log_returns_nots <- crypto$Bitcoin[!is.nan(crypto$Bitcoin) & is.finite(crypto$Bitcoin)]
 
 
-    fit_t <- fitdistr(bitcoin_log_returns_nots, "t")
+fit_t <- fitdistr(bitcoin_log_returns_nots, "t")
 
-    fit_t_dis<- (crypto$Bitcoin-fit_t$estimate[1])/fit_t$sd[1]
+fit_t_dis<- (crypto$Bitcoin-fit_t$estimate[1])/fit_t$sd[1]
 
-    fit_t_dis_ts<-ts(fit_t_dis, 
-                     start = c(1),       
-                     frequency = 1440)
+fit_t_dis_ts<-ts(fit_t_dis, 
+                 start = c(1),       
+                 frequency = 1440)
 
-    qqnorm(fit_t_dis_ts, main = "QQ-Plot of Negative Log t Returns")
-    qqline(fit_t_dis_ts, col = "#62A39F", lwd = 2)
+qqnorm(fit_t_dis_ts, main = "QQ-Plot of Negative Log t Returns")
+qqline(fit_t_dis_ts, col = "#62A39F", lwd = 2)
 
-    ```
+```
 
-    Comparing this chart with the normal distribution plot, we can say that the normal distribution was better than the t distribution as it is closer to the blue line.
+Comparing this chart with the normal distribution plot, we can say that the normal distribution was better than the t distribution as it is closer to the blue line.
 
 #### 1.5. Compare the tails of the densities of the t-distribution and the normal distribution. Can we expect more extreme, unexpected events in t-distribution or in normal distribution? What can you conclude about the extreme events of our bitcoin data?
 
-    Both tails deviate significantly from the blue line, indicating that Bitcoin is prone to extreme events. However, the t-distribution exhibits greater tail density compared to the normal distribution, suggesting that the t-distribution allows for a higher likelihood of unexpected, extreme events.
+```         
+Both tails deviate significantly from the blue line, indicating that Bitcoin is prone to extreme events. However, the t-distribution exhibits greater tail density compared to the normal distribution, suggesting that the t-distribution allows for a higher likelihood of unexpected, extreme events.
+```
 
 ### Part 2: Financial time series, heteroscedasticity and the random walk hypothesis
-Another crucial hypothesis in asset pricing is the so-called homoscedasticity, i.e. constant variance of the residuals. We would also like to check this assumption.
+
+Another crucial hypothesis in asset pricing is the so-called homoscedasticity, i.e. constant variance of the residuals.
+We would also like to check this assumption.
 We use the same Bitcoin data as in Part 1.
 
 #### 2.1 Plot the ACF of the raw series as well as the negative log returns. Which one do you think are easier to model?
@@ -183,7 +191,10 @@ neg_log_returns <- -log_returns            # Negative log returns
 acf(neg_log_returns, main = "ACF of Negative Log Returns", lag.max = 50)
 ```
 
-The ACF of the raw Bitcoin price series shows high autocorrelation at multiple lags, indicating a strong positive, declining trend and non-stationarity. This suggests that the raw series exhibits significant dependencies and is harder to model. In contrast, the ACF of the negative log returns is mostly within the confidence intervals, suggesting little to no autocorrelation and a stationary series. Since the negative log returns exhibit less persistence and randomness, they are easier to model and more suitable for time series analysis compared to the raw Bitcoin prices.
+The ACF of the raw Bitcoin price series shows high autocorrelation at multiple lags, indicating a strong positive, declining trend and non-stationarity.
+This suggests that the raw series exhibits significant dependencies and is harder to model.
+In contrast, the ACF of the negative log returns is mostly within the confidence intervals, suggesting little to no autocorrelation and a stationary series.
+Since the negative log returns exhibit less persistence and randomness, they are easier to model and more suitable for time series analysis compared to the raw Bitcoin prices.
 
 #### 2.2 Use a Ljung-Box procedure to formally test for (temporal) serial dependence in the raw series and in the negative log return series. What is your conclusion?
 
@@ -196,7 +207,10 @@ ljung_box_neg_log <- Box.test(neg_log_returns, type = "Ljung-Box", lag = 20)
 print(ljung_box_neg_log)
 ```
 
-Since the p-value is much smaller than 0.05, we reject the null hypothesis, indicating that there is significant autocorrelation in the raw Bitcoin price series. This confirms that the raw Bitcoin series is non-stationary and exhibits strong trends and patterns over time, as suggested by the ACF plot. Since the p-value is just below 0.05, we also reject the null hypothesis, suggesting weak serial dependence in the negative log returns, though the level of dependence is much weaker compared to the raw Bitcoin series. While the negative log returns series is closer to stationarity (as indicated by the ACF plot), there is still a slight level of autocorrelation present.
+Since the p-value is much smaller than 0.05, we reject the null hypothesis, indicating that there is significant autocorrelation in the raw Bitcoin price series.
+This confirms that the raw Bitcoin series is non-stationary and exhibits strong trends and patterns over time, as suggested by the ACF plot.
+Since the p-value is just below 0.05, we also reject the null hypothesis, suggesting weak serial dependence in the negative log returns, though the level of dependence is much weaker compared to the raw Bitcoin series.
+While the negative log returns series is closer to stationarity (as indicated by the ACF plot), there is still a slight level of autocorrelation present.
 
 #### 2.3 Propose ARIMA models for the negative log returns series, based on visualization tools (e.g. ACF, PACF). Select an ARIMA model using auto.arima() (forecast package) for the negative log returns series. Comment on the difference. Assess the residuals of the resulting models.
 
@@ -221,7 +235,14 @@ checkresiduals(manual_ARIMA_model)
 checkresiduals(auto_ARIMA_model)
 ```
 
-The auto ARIMA(2, 0, 2) model is likely preferred because it has a lower AIC value, suggesting a better balance between fit and complexity. The first model provides a simpler representation but may not capture the underlying dynamics as effectively as the second model. The stronger coefficients in the second model suggest it can explain the data with greater accuracy. We reject the null hypothesis of no autocorrelation in the residuals for manual ARIMA(1, 0, 1) model. This indicates that there is significant autocorrelation. The model may not adequately capture the time series dynamics, suggesting that it might be beneficial to consider a more complex model. For auto ARIMA(2, 0, 2) we accept the null hypothesis of no autocorrelation in the residuals. This indicates that the residuals from the ARIMA(2, 0, 2) model behave like white noise, suggesting that this model adequately captures the time series dynamics.
+The auto ARIMA(2, 0, 2) model is likely preferred because it has a lower AIC value, suggesting a better balance between fit and complexity.
+The first model provides a simpler representation but may not capture the underlying dynamics as effectively as the second model.
+The stronger coefficients in the second model suggest it can explain the data with greater accuracy.
+We reject the null hypothesis of no autocorrelation in the residuals for manual ARIMA(1, 0, 1) model.
+This indicates that there is significant autocorrelation.
+The model may not adequately capture the time series dynamics, suggesting that it might be beneficial to consider a more complex model.
+For auto ARIMA(2, 0, 2) we accept the null hypothesis of no autocorrelation in the residuals.
+This indicates that the residuals from the ARIMA(2, 0, 2) model behave like white noise, suggesting that this model adequately captures the time series dynamics.
 
 #### 2.4 Fit GARCH models to the negative log returns with both normal and standardized t-distributions, with order (1, 1), using the garchFit() function from the fGarch library. Assess the quality of the fit by evaluating the residuals.
 
@@ -263,13 +284,15 @@ plot(residuals_t, main = "Residuals of GARCH Model (t-Distribution)",
 acf(residuals_t, main = "ACF of Residuals (t-Distribution)")
 ```
 
-The GARCH(1, 1) model with standardized t-distribution appears to be the better fitting model for the negative log returns, given the log-likelihood, AIC, and the inclusion of a shape parameter. Both models exhibit significant coefficients for ( \omega ), ( \alpha\_1 ), and ( \beta\_1 ). Despite both models showing non-normality in residuals, they both adequately model the autocorrelation structure of the returns.
+The GARCH(1, 1) model with standardized t-distribution appears to be the better fitting model for the negative log returns, given the log-likelihood, AIC, and the inclusion of a shape parameter.
+Both models exhibit significant coefficients for ( \omega ), ( \alpha\_1 ), and ( \beta\_1 ).
+Despite both models showing non-normality in residuals, they both adequately model the autocorrelation structure of the returns.
 
 #### 2.5 Residual serial correlation can be present when fitting a GARCH directly on the negative log returns.
-Hence, in order to circumvent this problem, it is possible to use the following two-step approach:
-• Fit an ARIMA(p, d, q) on the negative log returns with the choices p, d and q from part (c);
-• Fit a GARCH(1, 1) on the residuals of the ARIMA(p, d, q) fit.
-Proceed with the above recipe. Assess the quality of the above fit.
+
+Hence, in order to circumvent this problem, it is possible to use the following two-step approach: • Fit an ARIMA(p, d, q) on the negative log returns with the choices p, d and q from part (c); • Fit a GARCH(1, 1) on the residuals of the ARIMA(p, d, q) fit.
+Proceed with the above recipe.
+Assess the quality of the above fit.
 
 ```{r}
 # Obtain the residuals from the ARIMA model
@@ -292,17 +315,26 @@ acf(garch_residuals)
 pacf(garch_residuals)
 ```
 
-The GARCH(1, 1) model on the residuals of the ARIMA(2, 0, 2) model indicates significant volatility persistence, as evidenced by the significant α1 and β1 coefficients. The Ljung-Box test results suggest that the residuals do not exhibit serial correlation, indicating a good fit for the model. ACF and PACF of the residuals indicate that GARCH model has adequately captured the temporal dependencies in the data suggesting that the model is a good fit for the data.
+The GARCH(1, 1) model on the residuals of the ARIMA(2, 0, 2) model indicates significant volatility persistence, as evidenced by the significant α1 and β1 coefficients.
+The Ljung-Box test results suggest that the residuals do not exhibit serial correlation, indicating a good fit for the model.
+ACF and PACF of the residuals indicate that GARCH model has adequately captured the temporal dependencies in the data suggesting that the model is a good fit for the data.
 
-#### 2.6  Compare the three models from the previous parts. Which is more suitable? In which of these models is the homoscedasticity assumption violated?
+#### 2.6 Compare the three models from the previous parts. Which is more suitable? In which of these models is the homoscedasticity assumption violated?
 
-To compare the three models (ARIMA, GARCH, and ARIMA-GARCH) we consider various criteria such as model fit, statistical significance, and the homoscedasticity assumption. The ARIMA-GARCH model is the most suitable because it effectively captures both the mean and the variance of the negative log returns. It addresses the limitations of the ARIMA model alone, which may not handle volatility adequately, while also confirming the improvements in fit over the standalone GARCH model. The ARIMA model is where the homoscedasticity assumption is most likely violated, as it does not account for the changing variance inherent in financial time series data. In contrast, both the GARCH and ARIMA-GARCH models explicitly model volatility, thereby addressing this assumption.
+To compare the three models (ARIMA, GARCH, and ARIMA-GARCH) we consider various criteria such as model fit, statistical significance, and the homoscedasticity assumption.
+The ARIMA-GARCH model is the most suitable because it effectively captures both the mean and the variance of the negative log returns.
+It addresses the limitations of the ARIMA model alone, which may not handle volatility adequately, while also confirming the improvements in fit over the standalone GARCH model.
+The ARIMA model is where the homoscedasticity assumption is most likely violated, as it does not account for the changing variance inherent in financial time series data.
+In contrast, both the GARCH and ARIMA-GARCH models explicitly model volatility, thereby addressing this assumption.
 
 ### Part 3:Dependenlibrary(forecast)ce between time series
 
-We would like to know the connection between the two most prominent nancial crypto-stock prices \| Bitcoin and Ethereum. Are they dependent? Are the extreme events between these time series connected?
+We would like to know the connection between the two most prominent nancial crypto-stock prices \| Bitcoin and Ethereum.
+Are they dependent?
+Are the extreme events between these time series connected?
 
-For this part, use also the Ethereum data (ETH). Compute the negative log returns of ETH.
+For this part, use also the Ethereum data (ETH).
+Compute the negative log returns of ETH.
 
 ```{r}
 # Calculate log returns for Bitcoin and Ethereum (convert to numeric in case of any issues)
@@ -355,13 +387,15 @@ print(correlation_test)
 
     -   The correlation coefficient is **-0.00315**, which is extremely close to **0**.
 
-    -   This suggests that there is **no significant correlation** between the **negative log returns** of Bitcoin and Ethereum. In other words, extreme negative movements in Bitcoin and Ethereum prices do not seem to be linearly related.
+    -   This suggests that there is **no significant correlation** between the **negative log returns** of Bitcoin and Ethereum.
+        In other words, extreme negative movements in Bitcoin and Ethereum prices do not seem to be linearly related.
 
 2.  p-value:
 
     -   The **p-value is 0.9**, which is much higher than the typical significance threshold (**0.05**).
 
-    -   This means that there is **insufficient evidence to reject the null hypothesis** that the correlation is zero (independence). Therefore, we cannot conclude that the negative returns of Bitcoin and Ethereum are correlated.
+    -   This means that there is **insufficient evidence to reject the null hypothesis** that the correlation is zero (independence).
+        Therefore, we cannot conclude that the negative returns of Bitcoin and Ethereum are correlated.
 
 3.  Confidence interval:
 
@@ -369,7 +403,8 @@ print(correlation_test)
 
 Conclusion:
 
-Given the extremely low correlation coefficient, the high p-value, and the confidence interval that includes zero, there is no no significant linear relationship. This implies that negative extreme events in Bitcoin prices are not related to negative extreme events in Ethereum prices.
+Given the extremely low correlation coefficient, the high p-value, and the confidence interval that includes zero, there is no no significant linear relationship.
+This implies that negative extreme events in Bitcoin prices are not related to negative extreme events in Ethereum prices.
 
 #### 3.2 Calculate the cross-correlation function (CCF) between the negative log returns of Bitcoin and ETH. What do you observe?
 
@@ -393,13 +428,15 @@ Y-axis (ACF - Autocorrelation):
 
 Confidence intervals:
 
--   The blue dashed lines represent the **confidence intervals** (typically 95%). If a cross-correlation value falls outside these bounds, it is considered **statistically significant**, meaning there is likely some dependence between the two series at that specific lag.
+-   The blue dashed lines represent the **confidence intervals** (typically 95%).
+    If a cross-correlation value falls outside these bounds, it is considered **statistically significant**, meaning there is likely some dependence between the two series at that specific lag.
 
 -   Values within the dashed lines indicate **no significant correlation** at those lags.
 
 Conclusion:
 
--   The CCF plot shows **no significant lead-lag relationship** between the negative log returns of Bitcoin and Ethereum. The only notable correlation occurs at **lag 0**, implying that the two assets' negative log returns are correlated when they happen **at the same time**, but there is no evidence of either asset consistently leading the other in terms of negative returns.
+-   The CCF plot shows **no significant lead-lag relationship** between the negative log returns of Bitcoin and Ethereum.
+    The only notable correlation occurs at **lag 0**, implying that the two assets' negative log returns are correlated when they happen **at the same time**, but there is no evidence of either asset consistently leading the other in terms of negative returns.
 
 -   This result is consistent with the Pearson correlation analysis.
 
@@ -467,7 +504,8 @@ Thus, **there is weak evidence** (at the 10% level) that **Bitcoin might have so
 
 Conclusion:
 
-1.  **Bitcoin causing Ethereum**: There is **weak evidence** that Bitcoin's negative log returns might have some predictive power over Ethereum's negative log returns, as the p-value is **0.062** (which is slightly below 0.1 but above 0.05). At a **10% significance level**, Bitcoin as having **some predictive power** over Ethereum, but this result is not very strong or conclusive.
+1.  **Bitcoin causing Ethereum**: There is **weak evidence** that Bitcoin's negative log returns might have some predictive power over Ethereum's negative log returns, as the p-value is **0.062** (which is slightly below 0.1 but above 0.05).
+    At a **10% significance level**, Bitcoin as having **some predictive power** over Ethereum, but this result is not very strong or conclusive.
 
 2.  **Ethereum causing Bitcoin**: There is **no evidence** that Ethereum's negative log returns Granger cause Bitcoin's negative log returns, as the p-value is **0.53**, which is much higher than the standard significance levels of 0.05 and 0.1.
 
@@ -539,7 +577,9 @@ The evidence here strongly suggests a **unidirectional relationship** where **Bi
 
 #### 3.4 Based on your answer in (c), answer the following questions:
 
-    1.  We observe an extreme sudden drop in Bitcoin stocks. What should we expect that will happen with ETH stocks?
+```         
+1.  We observe an extreme sudden drop in Bitcoin stocks. What should we expect that will happen with ETH stocks?
+```
 
 -   The Granger causality suggests that **Bitcoin’s past behavior influences Ethereum’s future performance**, so a significant negative movement in Bitcoin (such as a sudden drop) could lead to a **similar negative impact on Ethereum** over the next few days (based on the lag structure).
 
@@ -548,7 +588,6 @@ The evidence here strongly suggests a **unidirectional relationship** where **Bi
 2)  We observe an extreme sudden drop in ETH stocks. What should we expect that will happen with Bitcoin stocks?
 
 -   According to the Granger causality test, if there is an extreme sudden drop in Ethereum stocks, **we should not expect Bitcoin stocks to be directly influenced** by this drop, at least not in a predictable or systematic way based on the historical relationship between the two assets.
-
 
 ## Practical 2: Precipitation in Lausanne
 
@@ -572,7 +611,7 @@ rain_df <- read_csv("Practical 2/Precipitation_lausanne_full.csv")
 rain_df$Date <- as.Date(rain_df$Date, format = "%m/%d/%Y")
 ```
 
-#### 1.1 Histogram of the daily precipitation values: 
+#### 1.1 Histogram of the daily precipitation values:
 
 ```{r, include=TRUE}
 daily_precipitation_histogram <- ggplot(rain_df, aes(x = Precipitation)) +
@@ -588,9 +627,11 @@ ggsave("daily_precipitation_histogram.png", plot = daily_precipitation_histogram
 
 ```
 
-According to the histogram, it appears that the data could fit into a Gumbel Distribution. There is a rapid decay in the frequency of observations and the Gumbel distribution can model this behavior well and also considering that we are focusing on the extreme heavy rainfall events.
+According to the histogram, it appears that the data could fit into a Gumbel Distribution.
+There is a rapid decay in the frequency of observations and the Gumbel distribution can model this behavior well and also considering that we are focusing on the extreme heavy rainfall events.
 
-#### 1.2 Yearly maximum values: 
+#### 1.2 Yearly maximum values:
+
 ```{r setup, include=TRUE}
 rain_df <- rain_df |> mutate(Year = format(Date, "%Y"))
 
@@ -612,21 +653,35 @@ histogram_plot <- ggplot(yearly_max, aes(x = MaxPrecipitation)) +
 ggsave("yearly_max_precipitation_histogram.png", plot = histogram_plot, width = 8, height = 6)
 
 ```
-The majority of the yearly maximum precipitation values are clustered between 40 and 70 mm, indicating that these values are typical for Lausanne's climate during the period analyzed. Precipitation levels exceeding 100 mm are rare, as seen by the few bars on the far right of the histogram.
+
+The majority of the yearly maximum precipitation values are clustered between 40 and 70 mm, indicating that these values are typical for Lausanne's climate during the period analyzed.
+Precipitation levels exceeding 100 mm are rare, as seen by the few bars on the far right of the histogram.
+
 ```{r setup, include=TRUE}
 gumbel <- fgev(yearly_max$MaxPrecipitation, shape = 0)
 frechet <- fgev(yearly_max$MaxPrecipitation)
 ```
-By examining the scale parameters of the distributions, which indicate the variability of the data, we can observe that the Frechet distribution has the smallest scale parameter (9.97), closely followed by the Gumbel distribution (10.30), both indicating less variation in the extreme precipitation events. Both the Gumbel and Frechet distributions show a typical yearly maximum precipitation around 48 mm, which is consistent with what was observed in the histogram. Although both distributions have similar deviance values, the Frechet distribution shows the lowest deviance (666.94), compared to the Gumbel distribution (668.33), suggesting that Frechet provides the best fit for the data. However, the Gumbel distribution also performs reasonably well, and while the Frechet is the better fit, Gumbel remains a valid option for modeling the yearly maximum precipitation events.
+
+By examining the scale parameters of the distributions, which indicate the variability of the data, we can observe that the Frechet distribution has the smallest scale parameter (9.97), closely followed by the Gumbel distribution (10.30), both indicating less variation in the extreme precipitation events.
+Both the Gumbel and Frechet distributions show a typical yearly maximum precipitation around 48 mm, which is consistent with what was observed in the histogram.
+Although both distributions have similar deviance values, the Frechet distribution shows the lowest deviance (666.94), compared to the Gumbel distribution (668.33), suggesting that Frechet provides the best fit for the data.
+However, the Gumbel distribution also performs reasonably well, and while the Frechet is the better fit, Gumbel remains a valid option for modeling the yearly maximum precipitation events.
 
 #### 1.3 Linear model to the yearly maximum precipitation values and prediction for the next 10 years:
+
 ```{r setup, include=TRUE}
 yearly_max$Year <- as.numeric(yearly_max$Year)
 
 linear_model <- lm(MaxPrecipitation ~ Year, data = yearly_max)
 summary(linear_model)
 ```
-According to the coefficients, the intercept is not particularly useful in this context since we are not interested in knowing the precipitation when the year is 0, which is not meaningful. The coefficient for Year -.006, indicating that the maximum precipitation is expected to decrease by approximately .006 mm per year. However, given that the p-value is higher than the standard significance level (0.05), we cannot conclude that Year is a significant predictor of maximum precipitation. This is further supported by the relatively low t-value for Year, suggesting weak evidence for its effect. Additionally, the model has low explanatory power, as reflected by the R-squared, meaning that the model explains only a small portion of the variation in the data. This suggests that the linear model with Year as the regressor may not be appropriate for capturing the trends in yearly maximum precipitation.
+
+According to the coefficients, the intercept is not particularly useful in this context since we are not interested in knowing the precipitation when the year is 0, which is not meaningful.
+The coefficient for Year -.006, indicating that the maximum precipitation is expected to decrease by approximately .006 mm per year.
+However, given that the p-value is higher than the standard significance level (0.05), we cannot conclude that Year is a significant predictor of maximum precipitation.
+This is further supported by the relatively low t-value for Year, suggesting weak evidence for its effect.
+Additionally, the model has low explanatory power, as reflected by the R-squared, meaning that the model explains only a small portion of the variation in the data.
+This suggests that the linear model with Year as the regressor may not be appropriate for capturing the trends in yearly maximum precipitation.
 
 ```{r setup, include=TRUE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -657,9 +712,15 @@ precipitation_plot <- ggplot() +
 
 ggsave("linear_model_precipitation_predictions.png", plot = precipitation_plot, width = 10, height = 6)
 ```
-This approach is clearly not reasonable. As stated before, the linear model is not accurate because the predictor, Year, is not statistically significant, and the model has a low explanatory power (as indicated by the low R-squared value). It is not appropriate to assume that maximum precipitation levels will increase each year simply because time has passed. Precipitation levels are influenced by numerous other significant factors (such as climate patterns, atmospheric conditions, and environmental changes) that are not accounted for in this simple model. Therefore, relying on Year alone as a predictor of future precipitation is misleading and oversimplified.
+
+This approach is clearly not reasonable.
+As stated before, the linear model is not accurate because the predictor, Year, is not statistically significant, and the model has a low explanatory power (as indicated by the low R-squared value).
+It is not appropriate to assume that maximum precipitation levels will increase each year simply because time has passed.
+Precipitation levels are influenced by numerous other significant factors (such as climate patterns, atmospheric conditions, and environmental changes) that are not accounted for in this simple model.
+Therefore, relying on Year alone as a predictor of future precipitation is misleading and oversimplified.
 
 #### 1.4 GEV with constant parameters vs. GEV model with time varying location parameter
+
 ```{r setup, include=TRUE}
 gev_constant <- fevd(yearly_max$MaxPrecipitation, type = "GEV")
 summary(gev_constant)
@@ -667,7 +728,9 @@ summary(gev_constant)
 gev_time_var <- fevd(yearly_max$MaxPrecipitation, location.fun = ~ Year, data = yearly_max, type = "GEV")
 summary(gev_time_var)
 ```
-The constant-parameter model has a lower AIC/BIC than the  time-varying location model, suggesting that the average of extreme precipitation values is changing over time (not simply increasing), as the constant model might imply, but also decreasing at times, which is more aligned with real-world variability. This highlights that extremes are not static and can fluctuate due to multiple factors beyond just the passage of time, making the time-varying model a more realistic representation.
+
+The constant-parameter model has a lower AIC/BIC than the time-varying location model, suggesting that the average of extreme precipitation values is changing over time (not simply increasing), as the constant model might imply, but also decreasing at times, which is more aligned with real-world variability.
+This highlights that extremes are not static and can fluctuate due to multiple factors beyond just the passage of time, making the time-varying model a more realistic representation.
 
 #### 1.5 Diagnostic plots of the GEV fit
 
@@ -684,9 +747,12 @@ plot(gev_constant, type = "qq", main = "Q-Q Plot")
 dev.off() 
 ```
 
-Using the probability plot, which compares the empirical probabilities from the data with the model's predicted probabilities, the points generally align along the diagonal. However, there are some deviations at the extremes, indicating that the model struggles to fit the most extreme values. This issue is also observed in the Q-Q plot, which further suggests that the model is not accurate for predicting extreme events. While the GEV model provides a better fit compared to the previous model, it still falls short in reliably predicting the most extreme precipitation events, particularly at the tails of the distribution.
+Using the probability plot, which compares the empirical probabilities from the data with the model's predicted probabilities, the points generally align along the diagonal.
+However, there are some deviations at the extremes, indicating that the model struggles to fit the most extreme values.
+This issue is also observed in the Q-Q plot, which further suggests that the model is not accurate for predicting extreme events.
+While the GEV model provides a better fit compared to the previous model, it still falls short in reliably predicting the most extreme precipitation events, particularly at the tails of the distribution.
 
-#### 1.6 Predict the 10-year return level: 
+#### 1.6 Predict the 10-year return level:
 
 ```{r setup, include=TRUE}
 
@@ -714,9 +780,12 @@ ggsave("plot2_6.png", plot = plot, width = 7, height = 7)
 
 ```
 
-The blue dots represent the observed maximum precipitation for each year, while the green line represents the 10-year return level predicted by the constant-parameter GEV model. The horizontal nature of the red line reflects the assumption of a constant location parameter, meaning the threshold for extreme events does not change over time. While the observed blue points vary from year to year, there is no evidence of an increasing trend in extreme precipitation based on this model.
+The blue dots represent the observed maximum precipitation for each year, while the green line represents the 10-year return level predicted by the constant-parameter GEV model.
+The horizontal nature of the red line reflects the assumption of a constant location parameter, meaning the threshold for extreme events does not change over time.
+While the observed blue points vary from year to year, there is no evidence of an increasing trend in extreme precipitation based on this model.
 
 #### 1.7 Results for both the linear model predictionand the GEV approach
+
 ```{r setup, include=TRUE}
 return_level_10_gev <- return.level(gev_constant, return.period = 10)
 return_level_10_gev
@@ -760,10 +829,14 @@ exceed_85_linear
 
 ```
 
-As expected, for the 10-year return level using the GEV model, there are 6 historical values where the maximum precipitation exceeds the 10-year return level. For the 20-year return level, there are 4 exceedances, while there are 2 exceedances for the 50-year return level and 1 exceedance for the 85-year return level. These results indicate that the GEV model performs well, capturing the frequency of extreme precipitation values accurately and in line with what is expected for rare events.
-In contrast, the linear model shows 0 exceedances across all return levels, meaning it fails to account for extreme values. This suggests that the linear model is unsuitable for predicting and modeling extreme events, as it does not adequately capture the distribution's tails
+As expected, for the 10-year return level using the GEV model, there are 6 historical values where the maximum precipitation exceeds the 10-year return level.
+For the 20-year return level, there are 4 exceedances, while there are 2 exceedances for the 50-year return level and 1 exceedance for the 85-year return level.
+These results indicate that the GEV model performs well, capturing the frequency of extreme precipitation values accurately and in line with what is expected for rare events.
+In contrast, the linear model shows 0 exceedances across all return levels, meaning it fails to account for extreme values.
+This suggests that the linear model is unsuitable for predicting and modeling extreme events, as it does not adequately capture the distribution's tails
 
 #### 1.8 Return period of 100 mm of precipitation.
+
 ```{r setup, include=TRUE}
 threshold_precipitation <- 100
 params <- gev_constant$results
@@ -773,9 +846,11 @@ cdf_100 <- pevd(threshold_precipitation, loc = params$par[1], scale = params$par
 return_period_100mm <- 1 / (1 - cdf_100)
 return_period_100mm
 ```
-Precipitation of 100 mm or more can occur once every 71.77 years. 
+
+Precipitation of 100 mm or more can occur once every 71.77 years.
 
 #### 1.9 Probability that there will be a day in the next year when the precipitation exceeds 150 mm.
+
 ```{r setup, include=TRUE}
 threshold_precipitation <- 150
 params <- gev_constant$results
@@ -791,9 +866,10 @@ prob_exceed_150_year <- 1 - prob_not_exceed_any_day
 prob_exceed_150_year
 
 ```
-The probability of exceeding 150 mm on any day is .0642% and the probability of at least one day in the next year is 20.9%. 
 
-### Part 2
+The probability of exceeding 150 mm on any day is .0642% and the probability of at least one day in the next year is 20.9%.
+
+### Part 2: Peaks-over-threshold approach
 
 ```{r}
 rain_df <- read.csv("Precipitation_lausanne_full.csv")
@@ -821,7 +897,9 @@ ggplot(rain_df, aes(x = Date, y = Precipitation)) +
 mrlplot(rain_df$Precipitation, main = "Mean Residual Life Plot for Precipitation Data")
 ```
 
-Between 20 and 40, the plot is relatively stable, with no strong upwards or downwards trend, and the mean excess remains quite constant. In the region around 45-50, the mean excess shows larger fluctuations and the graph starts to act more erratic. Therefore, we choose 40 as the threshold value.
+Between 20 and 40, the plot is relatively stable, with no strong upwards or downwards trend, and the mean excess remains quite constant.
+In the region around 45-50, the mean excess shows larger fluctuations and the graph starts to act more erratic.
+Therefore, we choose 40 as the threshold value.
 
 ```{r}
 # Based on the plot, choose a reasonable threshold
@@ -857,12 +935,13 @@ With a threshold value of 40, we get the following diagnostic for our model:
 
 -   Probability plot: while our model tends to slightly overestimate low values (below 0.4), it seems overall reliable.
 
--   QQ-Plot: the fit is generally good. However, we notice an extreme value in the upper tail that is not properly captured by the model. Depending on the application, this could be an issue.
+-   QQ-Plot: the fit is generally good.
+    However, we notice an extreme value in the upper tail that is not properly captured by the model.
+    Depending on the application, this could be an issue.
 
 -   Density Plot: despite some slight variation, our fitted values align generally well with the model.
 
 -   Return Level Plot: despite some slight variation in the 20-50 years period, the fit is generally good.
-
 
 #### 2.4 Using the fitted model, compute the 10-year, 20-year, 50-year and 85-year return levels.
 
@@ -887,16 +966,26 @@ print(return_levels)
 shape <- fit_extremes$results$par["shape"]
 scale <- fit_extremes$results$par["scale"]
 threshold <- fit_extremes$threshold
-
-# Define the precipitation level we are interested in
 precipitation_level <- 100
+# Compute the empirical exceedance rate above the chosen threshold
+exceed_rate <- sum(rain_df$Precipitation > threshold) / nrow(rain_df)  # daily fraction of exceedances
+# Convert to yearly exceedance rate (assuming ~365 days/year)
+yearly_exceedance_rate <- exceed_rate * 365
 
-# Calculate the return period using the general formula
-return_period_100mm <- 1 / ((1 / 365) * (1 + shape * ((precipitation_level - threshold) / scale))^(-1/shape))
+# Calculate the probability of exceeding 'precipitation_level' on any given day
+# Given that for y = precipitation_level - threshold:
+# P(X > precipitation_level) = exceed_rate * (1 + shape * (y/scale))^(-1/shape)
+y <- precipitation_level - threshold
+p_exceed_100mm <- exceed_rate * (1 + shape * (y / scale))^(-1/shape)
+
+# Convert this probability into a return period:
+# Return period in days = 1 / daily probability
+return_period_days <- 1 / p_exceed_100mm
 
 # Convert the return period from days to years
-return_period_years <- return_period_100mm / 365
-print(paste0(">100mm rain every ", return_period_years, " years"))
+return_period_years <- return_period_days / 365
+
+print(paste0(">100mm rain every ", round(return_period_years, 2), " years"))
 ```
 
 #### 2.6 Using the fitted model, compute the probability that there will be a day in the next year when the precipitation exceeds 150 mm.
@@ -905,18 +994,25 @@ print(paste0(">100mm rain every ", return_period_years, " years"))
 # Define the precipitation level we are interested in (150 mm)
 precipitation_level_150 <- 150
 
-# Calculate the probability of exceeding 150 mm in the next year
-prob_150mm <- 1 - pgpd(precipitation_level_150 - threshold, scale = scale, shape = shape)
+# Probability that precipitation > threshold
+p_exceed <- mean(rain_df$Precipitation > threshold) 
+# Conditional probability above threshold for >150 mm
+p_conditional <- 1 - pgpd(precipitation_level_150 - threshold, scale = scale, shape = shape) 
+# Unconditional probability
+prob_150mm <- p_exceed * p_conditional
 
 # Print the probability
-print(paste0("Probability that there is a day with >150mm rain next year is ", prob_150mm, ", (= 0.007%)."))
+print(paste0("Probability that there is a day with >150mm rain next year is ", prob_150mm))
 ```
 
 #### 2.7 Compare the results with the block maxima method. Explain the drawbacks and advantages of using the POT approach compared to the block maxima method. Which method do you prefer?
 
-```{r}
+Interestingly, our approach to the POT and Block Maxima methods yield similar (in the same range) results for the return period of >100mm rain. However, we find widely different results when computing the probability that there will be a day in the next year when the precipitation exceed 150mm. 
 
-```
+This could be due to several factor. The first hypothesis is that, because the POT method is better at modelling extreme events than the block maxima (one of the advantages), the probablity found by the block maxima method widely over-estimate the risk.
+
+The second hypothesis is that the threshold selection for the POT method (40) introduced some bias in the distribution, therefore leading to high variance in estimates (Drawback of the POT, subjective choice, yet critical).
+
 
 ### Part 3
 
@@ -939,6 +1035,7 @@ ggplot(temp_df, aes(x = Date, y = AvgTemperature)) +
   theme_minimal()
 
 ```
+
 ```{r}
 # Subset the data for summer months (June to September)
 summer_df <- temp_df %>% filter(Month >= 6 & Month <= 9)
@@ -950,7 +1047,6 @@ ggplot(summer_df, aes(x = Date, y = AvgTemperature)) +
        y = "Average Temperature (°C)") +
   theme_minimal()
 ```
-
 
 #### 3.2 Compute the extremal index of the subsetted series with appropriatelly chosen threshold (for example, you can use extremalindex function in extRemes package). Do the extremes occur in clusters? What is the probability that if the temperature today is extreme (above the chosen threshold) then tomorrow will be also extreme?
 
@@ -964,10 +1060,11 @@ extremal_index_result <- extremalindex(summer_df$AvgTemperature, threshold_temp)
 # Print the extremal index
 extremal_index_result
 ```
-With a threshold of 20 degrees Celcius, our extremal index is close to 0 (0.15), indicating that extreme temperature  tend to happen in blocks (clusters). 
 
-With a threshold of 25 degrees Celcius, our extremal index is still low (0,27), further proving that extreme temperatures (>25 C) happen in clusters. This can be illustrated for example by heatwaves in Summer.
+With a threshold of 20 degrees Celcius, our extremal index is close to 0 (0.15), indicating that extreme temperature tend to happen in blocks (clusters).
 
+With a threshold of 25 degrees Celcius, our extremal index is still low (0,27), further proving that extreme temperatures (\>25 C) happen in clusters.
+This can be illustrated for example by heatwaves in Summer.
 
 #### 3.3 Decluster the data using a suitable threshold. Plot the resulting declustered data. (Hint: you may want to use decluster function in the extRemes package.)
 
@@ -1004,9 +1101,12 @@ return_level_declust <- return.level(fit_gpd_declust, return.period = 10)
 print(return_level_raw)
 print(return_level_declust)
 ```
-The raw summer data return level for 10-years is 29.23 degrees Celcius. It means that on average, the temperature of 29.23 C will be exceeded on average every 10 years.
 
-Without clustering of extreme events (the declustered data), the 10-years return level is 29.16 degrees Celcius. This is very close to the raw data and indicates that the clustering of extreme values does not have a significant impact on the 10-years return level.
+The raw summer data return level for 10-years is 29.23 degrees Celcius.
+It means that on average, the temperature of 29.23 C will be exceeded on average every 10 years.
+
+Without clustering of extreme events (the declustered data), the 10-years return level is 29.16 degrees Celcius.
+This is very close to the raw data and indicates that the clustering of extreme values does not have a significant impact on the 10-years return level.
 
 ## Practical 3
 
@@ -1834,6 +1934,7 @@ The 99% VaR indicates that losses will not exceed 6.37% on 99 out of 100 trading
 As confidence levels increase, the VaR captures progressively worse losses (up to 6.83% at 99.9% confidence), showing the potential for larger losses in rarer scenarios.
 
 #### Models Comparison
+
 ```{r}
 confidence_levels <- c(0.95, 0.99, 0.999)
 
@@ -1912,11 +2013,19 @@ ggplot(comparison_long, aes(x = factor(Confidence_Level), y = Value, fill = Metr
 print("Comparison of VaR and ES between GEV and POT Models:")
 print(comparison)
 ```
-Looking at the results from the comparison between GEV and POT models' VaR and ES, it is clear that POT model captures more extreme losses than GEV, which may be useful for risk averse scenarios. GEV model may be underestimating the risks given that it only considers block maxima, while POT is considering ALL exceedances above the threshold, making the model more sensitive to extreme events. 
 
-Given these results, for three different confidence intervals, POT model is better than GEV, especially for financial events which require a more rigourous analysis rather than the simplicity GEV offers. 
+Looking at the results from the comparison between GEV and POT models' VaR and ES, it is clear that POT model captures more extreme losses than GEV, which may be useful for risk averse scenarios.
+GEV model may be underestimating the risks given that it only considers block maxima, while POT is considering ALL exceedances above the threshold, making the model more sensitive to extreme events.
+
+Given these results, for three different confidence intervals, POT model is better than GEV, especially for financial events which require a more rigourous analysis rather than the simplicity GEV offers.
 
 ### Conclusion:
 
-In order to evaluate extreme risks in the Nasdaq Composite Index using Extreme Value Theory, two models were implemented: Block Maxima (GEV), which focuses on capturing the largest loss in blocks and Peaks Over Threshold (POT), which analyzes losses exceeding a threshold. Through the Stop Loss Strategy, POT models demonstrated its ability to reduce losses during volatile periods, specifically in 2022. 
-Both models provided VaR and ES estimates for different confidence levels in order to determine which one is better. The results demonstrate POT model performs better for financial events. GEV provides a simple summary within predefined time blocks, so it underestimates extreme events because it only considers the largest loss within each block. This model is more appropriate for lower risk environments which require computational simplicity. In the other hand, POT is more sensitive to extreme events so it produced more conservative VaR and ES estimates, especially for 99% and 99.9% confidence levels. This model works better for volatile environments such as the financial one. 
+In order to evaluate extreme risks in the Nasdaq Composite Index using Extreme Value Theory, two models were implemented: Block Maxima (GEV), which focuses on capturing the largest loss in blocks and Peaks Over Threshold (POT), which analyzes losses exceeding a threshold.
+Through the Stop Loss Strategy, POT models demonstrated its ability to reduce losses during volatile periods, specifically in 2022.
+Both models provided VaR and ES estimates for different confidence levels in order to determine which one is better.
+The results demonstrate POT model performs better for financial events.
+GEV provides a simple summary within predefined time blocks, so it underestimates extreme events because it only considers the largest loss within each block.
+This model is more appropriate for lower risk environments which require computational simplicity.
+In the other hand, POT is more sensitive to extreme events so it produced more conservative VaR and ES estimates, especially for 99% and 99.9% confidence levels.
+This model works better for volatile environments such as the financial one.
