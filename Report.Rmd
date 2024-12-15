@@ -1557,7 +1557,7 @@ While the **Historical VaR and ES** do not make these assumptions, instead relyi
 
 The **Historical POT approach** better captures extreme losses due to its reliance on observed data and focus on the most extreme values.
 This makes it more suitable for managing tail risks, especially in volatile markets like the NASDAQ Composite.
-Hence, it is more suitable for risk-averse investors who wants to be prepared for worst-case escenarios.
+Hence, it is more suitable for risk-averse investors who wants to be prepared for worst-case scenarios.
 
 ### 3. Models Comparison
 
