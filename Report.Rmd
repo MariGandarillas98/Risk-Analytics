@@ -10,6 +10,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+install.packages(c("tseries", "urca", "forecast", "nortest", "MASS", "extRemes", "lubridate", "dplyr", "ggplot2", "kableExtra"))
 
 library(tseries)
 library(urca)
@@ -30,6 +31,21 @@ library(flextable)
 library(fable)
 library(here)
 library(lmtest)
+library(readr)
+library(stringr)
+library(fitdistrplus)
+library(extRemes)
+library(evd)
+library(ismev)
+library(POT)
+library("xts")
+library("quantmod")
+library(kableExtra)
+library(PerformanceAnalytics)
+library(lubridate) 
+library(evir)
+library(ismev)
+library(tidyr)  
 ```
 
 ## Practical 1
@@ -96,7 +112,7 @@ Finally, the KPSS test suggests that we can rejec the Ho of stationarity conclud
 
 #### 1.2.Create a function to transform the Bitcoin prices into their negative log returns counterparts. Plot the latter series and assess their stationarity. To compare the series, also plot the negative log returns on a common scale.
 
-```{{r}}
+```{r}
 bitcoin_log_returns <- diff(log(bitcoin_ts))
 plot(bitcoin_log_returns, type = "l", main = "Negative Log Returns of Bitcoin Prices", 
      ylab = "Negative Log Returns", xlab = "Time", col = "#62A39F")
@@ -125,17 +141,15 @@ When we plot it together, it is easy to see how the logaritmic data set is close
 
 #### 1.3. Are the negative log returns normally distributed? Draw histograms, check QQ-plots and use an Anderson-Darling testing procedure to answer this question.
 
-```{{r}}
-# Plot Histogram of negative log returns
-hist(bitcoin_log_returns, breaks = 50, main = "Histogram of Negative Log Returns",
-     xlab = "Negative Log Returns", col = "#62A39F", border = "black", probability = TRUE)
+```{r}
+    # Plot Histogram of negative log returns
+    hist(bitcoin_log_returns, breaks = 50, main = "Histogram of Negative Log Returns",
+         xlab = "Negative Log Returns", col = "#62A39F", border = "black", probability = TRUE)
 
 
-# QQ-Plot to check for normality
-qqnorm(bitcoin_log_returns, main = "QQ-Plot of Negative Log Returns")
-qqline(bitcoin_log_returns, col = "#62A39F", lwd = 2)
-
-
+    # QQ-Plot to check for normality
+    qqnorm(bitcoin_log_returns, main = "QQ-Plot of Negative Log Returns")
+    qqline(bitcoin_log_returns, col = "#62A39F", lwd = 2)
 ```
 
 The histogram suggests a normal distributions while the QQplot shows some desviations at the tails that make us believe that there could be some problems with the normality.
@@ -149,30 +163,27 @@ As the p value is lower than 5% we can reject the normality and confirm that the
 
 #### 1.4. Fit a t-distribution to the negative log returns using fitdistr(). Using a QQ-plot, decide whether the t is better than with a Normal distribution, based on your answer in (3).
 
-```{{r}}
-bitcoin_log_returns_nots <- crypto$Bitcoin[!is.nan(crypto$Bitcoin) & is.finite(crypto$Bitcoin)]
+```{r}
+    bitcoin_log_returns_nots <- crypto$Bitcoin[!is.nan(crypto$Bitcoin) & is.finite(crypto$Bitcoin)]
 
 
-fit_t <- fitdistr(bitcoin_log_returns_nots, "t")
+    fit_t <- fitdistr(bitcoin_log_returns_nots, "t")
 
-fit_t_dis<- (crypto$Bitcoin-fit_t$estimate[1])/fit_t$sd[1]
+    fit_t_dis<- (crypto$Bitcoin-fit_t$estimate[1])/fit_t$sd[1]
 
-fit_t_dis_ts<-ts(fit_t_dis, 
-                 start = c(1),       
-                 frequency = 1440)
+    fit_t_dis_ts<-ts(fit_t_dis, 
+                     start = c(1),       
+                     frequency = 1440)
 
-qqnorm(fit_t_dis_ts, main = "QQ-Plot of Negative Log t Returns")
-qqline(fit_t_dis_ts, col = "#62A39F", lwd = 2)
-
+    qqnorm(fit_t_dis_ts, main = "QQ-Plot of Negative Log t Returns")
+    qqline(fit_t_dis_ts, col = "#62A39F", lwd = 2)
 ```
 
 Comparing this chart with the normal distribution plot, we can say that the normal distribution was better than the t distribution as it is closer to the blue line.
 
 #### 1.5. Compare the tails of the densities of the t-distribution and the normal distribution. Can we expect more extreme, unexpected events in t-distribution or in normal distribution? What can you conclude about the extreme events of our bitcoin data?
 
-```         
 Both tails deviate significantly from the blue line, indicating that Bitcoin is prone to extreme events. However, the t-distribution exhibits greater tail density compared to the normal distribution, suggesting that the t-distribution allows for a higher likelihood of unexpected, extreme events.
-```
 
 ### Part 2: Financial time series, heteroscedasticity and the random walk hypothesis
 
@@ -383,7 +394,6 @@ correlation_test <- cor.test(crypto$Bitcoin_negative_log_return, crypto$Ethereum
 
 # Print the results of the correlation test
 print(correlation_test)
-
 ```
 
 1.  Correlation coefficient (cor):
@@ -414,7 +424,6 @@ This implies that negative extreme events in Bitcoin prices are not related to n
 ```{r}
 # Calculate the cross-correlation function (CCF) between Bitcoin and Ethereum negative log returns
 ccf_result <- ccf(crypto$Bitcoin_negative_log_return, crypto$Ethereum_negative_log_return, lag.max = 20, plot = TRUE)
-
 ```
 
 X-axis (Lag):
@@ -474,7 +483,6 @@ For instance:
 -   try testing with higher lag orders (e.g., 4 lags, especially for Ethereum since the MA terms are high) to see if the results differ.
 
 ```{r}
-
 # Granger causality test with 2 lags based on ARIMA models
 granger_test_btc_to_eth <- grangertest(Ethereum_negative_log_return ~ Bitcoin_negative_log_return, order = 2, data = crypto)
 granger_test_eth_to_btc <- grangertest(Bitcoin_negative_log_return ~ Ethereum_negative_log_return, order = 2, data = crypto)
@@ -580,9 +588,7 @@ The evidence here strongly suggests a **unidirectional relationship** where **Bi
 
 #### 3.4 Based on your answer in (c), answer the following questions:
 
-```         
 1.  We observe an extreme sudden drop in Bitcoin stocks. What should we expect that will happen with ETH stocks?
-```
 
 -   The Granger causality suggests that **Bitcoin’s past behavior influences Ethereum’s future performance**, so a significant negative movement in Bitcoin (such as a sudden drop) could lead to a **similar negative impact on Ethereum** over the next few days (based on the lag structure).
 
@@ -595,20 +601,6 @@ The evidence here strongly suggests a **unidirectional relationship** where **Bi
 ## Practical 2: Precipitation in Lausanne
 
 ### Part 1: Block maxima approach
-
-```{r setup, include=FALSE}
-library(here)
-library(readxl)
-library(readr)
-library(ggplot2)
-library(stringr)
-library(fitdistrplus)
-library(dplyr)
-library(extRemes)
-library(evd)
-library(ismev)
-library(POT)
-```
 
 ```{r, include=TRUE}
 rain_df <- read_csv("data/Precipitation_lausanne_full.csv")
@@ -779,7 +771,6 @@ plot <- ggplot() +
 
 print(plot)
 ggsave("plot2_6.png", plot = plot, width = 7, height = 7)
-
 ```
 
 The blue dots represent the observed maximum precipitation for each year, while the green line represents the 10-year return level predicted by the constant-parameter GEV model.
@@ -828,7 +819,6 @@ exceed_50_linear
 
 exceed_85_linear <- sum(linear_predictions > return_level_85_gev)
 exceed_85_linear
-
 ```
 
 As expected, for the 10-year return level using the GEV model, there are 6 historical values where the maximum precipitation exceeds the 10-year return level.
@@ -866,7 +856,6 @@ prob_not_exceed_any_day <- (1 - prob_exceed_150) ^ 365
 
 prob_exceed_150_year <- 1 - prob_not_exceed_any_day
 prob_exceed_150_year
-
 ```
 
 The probability of exceeding 150 mm on any day is .0642% and the probability of at least one day in the next year is 20.9%.
@@ -1035,7 +1024,6 @@ ggplot(temp_df, aes(x = Date, y = AvgTemperature)) +
        x = "Date",
        y = "Average Temperature (°C)") +
   theme_minimal()
-
 ```
 
 ```{r}
@@ -1113,22 +1101,6 @@ This is very close to the raw data and indicates that the clustering of extreme 
 ## Practical 3
 
 ### 1. Data Pre-processing
-
-```{r, message =FALSE}
-library("xts")
-library("quantmod")
-library(kableExtra)
-library(ggplot2)
-library(dplyr)
-library(tseries)
-library(PerformanceAnalytics)
-library(extRemes) 
-library(lubridate) 
-library(evir)
-library(extRemes)
-library(ismev)
-library(tidyr)
-```
 
 ```{r}
 raw_data <- read.csv("data/INDEX_US_XNAS_COMP.csv")
@@ -1254,8 +1226,6 @@ head_block_max <- head(block_maxima_weekly)
 
 # Display the table (only the first 6 rows)
 head_block_max
-
-
 ```
 
 Each row highlights the **largest weekly loss** for the index.
@@ -1542,7 +1512,6 @@ ggplot(cumulative_returns, aes(x = Date, y = Cumulative_Return, color = Strategy
     legend.title = element_blank(),  # Remove legend title
     legend.position = "bottom"       # Position legend at the bottom
   )
-
 ```
 
 The POT-based stop-loss strategy significantly outperforms the non-stop-loss approach in terms of long-term cumulative returns, highlighting its practicality for managing extreme risk.
@@ -1555,7 +1524,6 @@ threshold <- quantile(-raw_data$Return, 0.95, na.rm = TRUE)
 
 # Print the selected threshold
 cat("Selected Threshold:", threshold, "\n")
-
 ```
 
 ```{r}
@@ -1565,7 +1533,6 @@ excesses <- -raw_data$Return[-raw_data$Return > threshold] - threshold
 # Print the first few exceedances
 cat("Excesses over the threshold:\n")
 print(head(excesses))
-
 ```
 
 Calculating the VaR historical with POT

@@ -3,8 +3,9 @@ title: "Practical 2 Part 1"
 output: pdf_document
 date: "2024-10-14"
 ---
-##Precipitation in Lausanne
-###Part 1: Block maxima approach
+## Practical 2: Precipitation in Lausanne
+
+##Part 1: Block maxima approach
 ```{r setup, include=FALSE}
 library(here)
 library(readxl)
@@ -21,8 +22,6 @@ library(ismev)
 ```{r, include=TRUE}
 rain_df <- read_csv("Precipitation_lausanne_full.csv")
 rain_df$Date <- as.Date(rain_df$Date, format = "%m/%d/%Y")
-
-
 ```
 
 ###a) Histogram of the daily precipitation values: 

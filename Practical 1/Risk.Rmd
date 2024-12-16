@@ -145,7 +145,7 @@ library(lmtest)
 
 4.  **Fit a t-distribution to the negative log returns using fitdistr(). Using a QQ-plot, decide whether the t is better than with a Normal distribution, based on your answer in (3).**
 
-    ```{r}
+```{r}
     bitcoin_log_returns_nots <- crypto$Bitcoin[!is.nan(crypto$Bitcoin) & is.finite(crypto$Bitcoin)]
 
 
@@ -160,7 +160,7 @@ library(lmtest)
     qqnorm(fit_t_dis_ts, main = "QQ-Plot of Negative Log t Returns")
     qqline(fit_t_dis_ts, col = "#62A39F", lwd = 2)
 
-    ```
+```
 
     Comparing this chart with the normal distribution plot, we can say that the normal distribution was better than the t distribution as it is closer to the blue line.
 
