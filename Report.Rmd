@@ -10,7 +10,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-#install.packages(c("tseries", "urca", "forecast", "nortest", "MASS", "extRemes", "lubridate", "dplyr", "ggplot2", "kableExtra", "fpp3","evir","extRemes"))
+install.packages(c("tseries", "urca", "forecast", "nortest", "MASS", "extRemes", "lubridate", "dplyr", "ggplot2", "kableExtra", "fpp3","evir","extRemes"))
 
 library(tseries)
 library(urca)
