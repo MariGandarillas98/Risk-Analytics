@@ -431,9 +431,9 @@ X-axis (Lag):
 
 -   The **lag values** on the X-axis range from -20 to +20.
 
--   A **negative lag** (to the left of 0) suggests that **Bitcoin’s negative log returns** might be leading Ethereum’s negative log returns (i.e., Bitcoin affects Ethereum after a delay).
+-   A **negative lag** (to the left of 0) suggests that **Bitcoin's negative log returns** might be leading Ethereum's negative log returns (i.e., Bitcoin affects Ethereum after a delay).
 
--   A **positive lag** (to the right of 0) suggests that **Ethereum’s negative log returns** might be leading Bitcoin’s negative log returns (i.e., Ethereum affects Bitcoin after a delay).
+-   A **positive lag** (to the right of 0) suggests that **Ethereum's negative log returns** might be leading Bitcoin's negative log returns (i.e., Ethereum affects Bitcoin after a delay).
 
 Y-axis (ACF - Autocorrelation):
 
@@ -512,7 +512,7 @@ Thus, **there is weak evidence** (at the 10% level) that **Bitcoin might have so
 
 -   Since the p-value is much higher than 0.05, you **fail to reject the null hypothesis**.
 
--   This suggests that **Ethereum’s negative log returns do not have predictive power** over Bitcoin’s negative log returns.
+-   This suggests that **Ethereum's negative log returns do not have predictive power** over Bitcoin's negative log returns.
 
 Conclusion:
 
@@ -553,7 +553,7 @@ Granger Causality Test (3 Lags):
 
     -   **F-statistic = 5.13**, **p-value = 0.0016** (very significant, below 0.01).
 
-    -   Since the p-value is **less than 0.05**, we **reject the null hypothesis** and conclude that Bitcoin’s negative log returns **Granger cause** Ethereum’s negative log returns when using 3 lags.
+    -   Since the p-value is **less than 0.05**, we **reject the null hypothesis** and conclude that Bitcoin's negative log returns **Granger cause** Ethereum's negative log returns when using 3 lags.
 
     -   This means that past values of Bitcoin's returns (up to 3 days) can predict Ethereum's returns with **strong evidence**.
 
@@ -569,7 +569,7 @@ Granger Causality Test (3 Lags):
 
     -   **F-statistic = 7.09**, **p-value = 1.2e-05** (extremely significant, much below 0.001).
 
-    -   With a very low p-value, we can **strongly reject the null hypothesis** and conclude that Bitcoin’s negative log returns **Granger cause** Ethereum’s negative log returns when using 4 lags.
+    -   With a very low p-value, we can **strongly reject the null hypothesis** and conclude that Bitcoin's negative log returns **Granger cause** Ethereum's negative log returns when using 4 lags.
 
     -   The predictive power of Bitcoin on Ethereum is even **stronger** when using 4 lags compared to 3 lags.
 
@@ -577,13 +577,13 @@ Granger Causality Test (3 Lags):
 
     -   **F-statistic = 0.54**, **p-value = 0.71** (again, far greater than 0.05).
 
-    -   As with the 3-lag test, we **fail to reject the null hypothesis**, meaning that Ethereum’s negative log returns do **not** Granger cause Bitcoin’s negative log returns with 4 lags.
+    -   As with the 3-lag test, we **fail to reject the null hypothesis**, meaning that Ethereum's negative log returns do **not** Granger cause Bitcoin's negative log returns with 4 lags.
 
 Conclusion:
 
 -   **Bitcoin's** past returns **have significant predictive** power over Ethereum's returns, and this relationship is stronger with a **4-lag model**.
 
--   **Ethereum's** returns **do not have predictive power** over Bitcoin’s returns, based on the 2-lag, 3-lag and 4-lag tests.
+-   **Ethereum's** returns **do not have predictive power** over Bitcoin's returns, based on the 2-lag, 3-lag and 4-lag tests.
 
 The evidence here strongly suggests a **unidirectional relationship** where **Bitcoin influences Ethereum**, but **Ethereum does not influence Bitcoin**.
 
@@ -591,7 +591,7 @@ The evidence here strongly suggests a **unidirectional relationship** where **Bi
 
 1.  We observe an extreme sudden drop in Bitcoin stocks. What should we expect that will happen with ETH stocks?
 
--   The Granger causality suggests that **Bitcoin’s past behavior influences Ethereum’s future performance**, so a significant negative movement in Bitcoin (such as a sudden drop) could lead to a **similar negative impact on Ethereum** over the next few days (based on the lag structure).
+-   The Granger causality suggests that **Bitcoin's past behavior influences Ethereum's future performance**, so a significant negative movement in Bitcoin (such as a sudden drop) could lead to a **similar negative impact on Ethereum** over the next few days (based on the lag structure).
 
 -   The effect might not be immediate, but it could unfold over the subsequent few days, particularly within **3 to 4 days** after the drop in Bitcoin.
 
@@ -1619,7 +1619,117 @@ GEV model may be underestimating the risks given that it only considers block ma
 
 Given these results, for three different confidence intervals, POT model is better than GEV, especially for financial events which require a more rigourous analysis rather than the simplicity GEV offers.
 
-### 4. Conclusion
+### 4. Stop-Loss Strategy
+
+```{r}
+### Assuming you have:
+# 1. raw_data with a 'Date' and 'Return' column.
+# 2. block_maxima_results containing the VaR estimates from the block maxima approach.
+# 3. VaR_POT_df containing the VaR estimates from the POT approach.
+
+# Let's say we choose the 95% VaR threshold from both methods.
+
+# From block_maxima_results (historical or parametric)
+# block_maxima_results format is something like:
+#   Confidence_Level Historical_VaR Historical_ES Parametric_VaR Parametric_ES
+# If we want the historical VaR at 95% (which should be row where Confidence_Level = 0.95):
+bm_95_var <- block_maxima_results$Historical_VaR[block_maxima_results$Confidence_Level == 0.95]
+
+# From POT results (VaR_POT_df), format something like:
+#   Confidence_Level   VaR          ES (if already computed)
+# If Confidence_Level = 0.95:
+pot_95_var <- VaR_POT_df$VaR[VaR_POT_df$Confidence_Level == 0.95]
+
+# Now we have two thresholds: bm_95_var and pot_95_var
+
+# Create two portfolios:
+# 1) Portfolio_BM: Use the Block Maxima 95% VaR
+# 2) Portfolio_POT: Use the POT 95% VaR
+
+# Strategy:
+# If today's return < VaR threshold (meaning the loss is greater than VaR), 
+# we go to cash the next day (no gain/loss the next day).
+# Otherwise, stay fully invested.
+# This creates a time series of "portfolio returns" that differ from raw_data returns.
+
+# Make sure returns are in percentage (e.g., -2 means -2%).
+# Portfolio return: If invested, portfolio return = raw_data$Return for that day.
+# If not invested due to previous day's trigger, portfolio return = 0% that day.
+
+# Initialize indicators
+raw_data$Invested_BM <- TRUE  # start fully invested
+raw_data$Invested_POT <- TRUE
+
+# We will decide on day t investment based on day t-1 return relative to VaR.
+# For the first day, assume we remain invested (no prior info).
+
+for (i in 2:nrow(raw_data)) {
+  # Check Block Maxima strategy
+  if (raw_data$Return[i - 1] < bm_95_var) {
+    # If previous day's return was worse than the VaR,
+    # move to cash for day i
+    raw_data$Invested_BM[i] <- FALSE
+  } else {
+    raw_data$Invested_BM[i] <- TRUE
+  }
+  
+  # Check POT strategy
+  if (raw_data$Return[i - 1] < pot_95_var) {
+    # If previous day's return was worse than the VaR,
+    # move to cash for day i
+    raw_data$Invested_POT[i] <- FALSE
+  } else {
+    raw_data$Invested_POT[i] <- TRUE
+  }
+}
+
+# Now calculate the portfolio returns
+# If invested on day i, portfolio return = raw_data$Return[i], else 0.
+raw_data$Portfolio_Return_BM <- ifelse(raw_data$Invested_BM, raw_data$Return, 0)
+raw_data$Portfolio_Return_POT <- ifelse(raw_data$Invested_POT, raw_data$Return, 0)
+
+# Convert returns to decimal form if they are in percentage
+# (If not already done, e.g., -2 means -2%, convert to -0.02)
+bm_returns_decimal <- raw_data$Portfolio_Return_BM / 100
+pot_returns_decimal <- raw_data$Portfolio_Return_POT / 100
+
+# Compute cumulative returns
+bm_cumulative <- cumprod(1 + bm_returns_decimal)
+pot_cumulative <- cumprod(1 + pot_returns_decimal)
+
+# Add these to the dataset
+raw_data$BM_Cumulative_Return <- bm_cumulative
+raw_data$POT_Cumulative_Return <- pot_cumulative
+
+# Finally, you can inspect the cumulative returns:
+tail(raw_data[, c("Date", "BM_Cumulative_Return", "POT_Cumulative_Return")])
+
+# Plot the cumulative returns to visualize the performance
+plot(
+  raw_data$Date, raw_data$BM_Cumulative_Return, 
+  type = "l", col = "#27CED7", lwd = 2,
+  xlab = "Date", ylab = "Cumulative Return",
+  main = "Cumulative Portfolio Returns Under Block Maxima and POT Strategies",
+  ylim = range(c(raw_data$BM_Cumulative_Return, raw_data$POT_Cumulative_Return), na.rm = TRUE),
+  cex.axis = 0.8, cex.lab = 0.9, cex.main = 0.95  # Adjust text size
+)
+
+# Add the second line for POT strategy
+lines(raw_data$Date, raw_data$POT_Cumulative_Return, col = "#42BA97", lwd = 2)
+
+# Place the legend outside with smaller font size
+legend(
+  "topright", 
+  inset = c(-0.01, 0), # Moves the legend outside the plot
+  legend = c("Block Maxima Strategy", "POT Strategy"),
+  col = c("#27CED7", "#42BA97"), lty = 1, lwd = 2, 
+  cex = 0.8,  # Makes the legend text smaller
+  xpd = TRUE, # Allows the legend to go outside the plot
+  bty = "n"   # Removes the box around the legend
+)
+```
+
+### 5. Conclusion
 
 In order to evaluate extreme risks in the Nasdaq Composite Index using Extreme Value Theory, two models were implemented: Block Maxima (GEV), which focuses on capturing the largest loss in blocks and Peaks Over Threshold (POT), which analyzes losses exceeding a threshold.
 Through the Stop Loss Strategy, POT models demonstrated its ability to reduce losses during volatile periods, specifically in 2022.
