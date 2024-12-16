@@ -1425,7 +1425,7 @@ N <- length(raw_data$Return)
 N_exc <- sum(-raw_data$Return > u)
 
 # Confidence levels
-p_levels <- c(0.99, 0.995, 0.999)
+p_levels <- c(0.95, 0.995, 0.999)
 
 # Calculate VaR
 VaR_POT <- sapply(p_levels, function(p) {
@@ -1462,88 +1462,23 @@ kable(print(VaR_POT_df))
 
 The analysis highlights the increasing severity of potential losses as confidence levels rise, with VaR and ES growing more extreme at 99.9% confidence.
 
-**Stop-Loss Strategy Based on POT VaR**
-
-```{r}
-# Add VaR levels to the dataset
-raw_data$VaR_POT_99 <- VaR_POT_df$VaR[VaR_POT_df$Confidence_Level == 0.99]
-
-# Generate stop-loss signals
-raw_data$Stop_Loss_POT_99 <- raw_data$Return <= raw_data$VaR_POT_99
-
-# Count the number of triggers
-num_triggers_POT_99 <- sum(raw_data$Stop_Loss_POT_99, na.rm = TRUE)
-cat("Number of stop-loss activations with POT at 99%:", num_triggers_POT_99, "\n")
-```
-
-According to the next plot, which compares the cumulative returns of two strategies.
-early (2021-2022) the performance of both strategies si similar, as extreme loss events are limited.But in late 2022, during a period of high market volatility, the stop-loss strategy reduce the significant losses, as it ca be observed between the two lines.
-
-```{r}
-# Cumulative returns without stop-loss
-raw_data$Cumulative_Return_No_Stop <- cumsum(raw_data$Return)
-
-# Cumulative returns with stop-loss POT
-raw_data$Cumulative_Return_With_Stop_POT_99 <- cumsum(ifelse(raw_data$Stop_Loss_POT_99, 0, raw_data$Return))
-
-# Plot cumulative returns
-library(ggplot2)
-
-# Create a data frame for cumulative returns
-cumulative_returns <- data.frame(
-  Date = rep(raw_data$Date, 2),
-  Cumulative_Return = c(raw_data$Cumulative_Return_No_Stop,
-                        raw_data$Cumulative_Return_With_Stop_POT_99),
-  Strategy = rep(c("Without Stop-Loss", "With Stop-Loss (POT 99%)"),
-                 each = nrow(raw_data))
-)
-
-# Custom colors for the strategies
-strategy_colors <- c("Without Stop-Loss" = "#1CADE4",  # Light Blue
-                     "With Stop-Loss (POT 99%)" = "#42BA97")  # Green
-
-# Plot cumulative returns with custom colors
-ggplot(cumulative_returns, aes(x = Date, y = Cumulative_Return, color = Strategy)) +
-  geom_line(size = 0.8) +
-  scale_color_manual(values = strategy_colors) +  # Apply custom colors
-  labs(
-    title = "Cumulative Returns with and without Stop-Loss Based on POT",
-    x = "Date",
-    y = "Cumulative Return (%)"
-  ) +
-  theme_minimal() +
-  theme(
-    legend.title = element_blank(),  # Remove legend title
-    legend.position = "bottom"       # Position legend at the bottom
-  )
-```
-
-The POT-based stop-loss strategy significantly outperforms the non-stop-loss approach in terms of long-term cumulative returns, highlighting its practicality for managing extreme risk.
-
 #### 2.2.2. POT Historic
 
 ```{r}
-# Define the threshold (e.g., 95th percentile of negative returns)
-threshold <- quantile(-raw_data$Return, 0.95, na.rm = TRUE)
-
-# Print the selected threshold
-cat("Selected Threshold:", threshold, "\n")
-```
-
-```{r}
 # Extract excesses over the threshold
-excesses <- -raw_data$Return[-raw_data$Return > threshold] - threshold
+excesses <- -raw_data$Return[-raw_data$Return > u] - u
 
 # Print the first few exceedances
 cat("Excesses over the threshold:\n")
 print(head(excesses))
+
 ```
 
 Calculating the VaR historical with POT
 
 ```{r}
 # Define confidence levels
-confidence_levels <- c(0.99, 0.995, 0.999)
+confidence_levels <- c(0.95, 0.995, 0.999)
 
 # Calculate Historical VaR using POT
 historical_var_pot <- sapply(confidence_levels, function(cl) {
@@ -1591,9 +1526,12 @@ print("Historical VaR and ES using POT:")
 print(historical_var_pot_df)
 ```
 
-The VaR grows as the confidence level increases, which is expected because higher confidence levels capture rarer, more extreme events.
-The 99% VaR indicates that losses will not exceed 6.37% on 99 out of 100 trading days, while the ES shows that when losses exceed the VaR, the average loss is 6.88%.
-As confidence levels increase, the VaR captures progressively worse losses (up to 6.83% at 99.9% confidence), showing the potential for larger losses in rarer scenarios.
+The **Parametric VaR and ES** rely on assumptions of normality, which may underestimate tail risks, as shown in the earlier analysis (non-normal returns).
+While the **Historical VaR and ES** do not make these assumptions, instead relying on actual extreme events from the data, leading to more conservative estimates.
+
+The **Historical POT approach** better captures extreme losses due to its reliance on observed data and focus on the most extreme values.
+This makes it more suitable for managing tail risks, especially in volatile markets like the NASDAQ Composite.
+Hence, it is more suitable for risk-averse investors who wants to be prepared for worst-case scenarios.
 
 ### 3. Models Comparison
 
