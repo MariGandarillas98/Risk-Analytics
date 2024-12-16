@@ -10,7 +10,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-install.packages(c("tseries", "urca", "forecast", "nortest", "MASS", "extRemes", "lubridate", "dplyr", "ggplot2", "kableExtra"))
+install.packages(c("tseries", "urca", "forecast", "nortest", "MASS", "extRemes", "lubridate", "dplyr", "ggplot2", "kableExtra", "fpp3","evir","extRemes"))
 
 library(tseries)
 library(urca)
@@ -38,8 +38,8 @@ library(extRemes)
 library(evd)
 library(ismev)
 library(POT)
-library("xts")
-library("quantmod")
+library(xts)
+library(quantmod)
 library(kableExtra)
 library(PerformanceAnalytics)
 library(lubridate) 
@@ -183,7 +183,8 @@ Comparing this chart with the normal distribution plot, we can say that the norm
 
 #### 1.5. Compare the tails of the densities of the t-distribution and the normal distribution. Can we expect more extreme, unexpected events in t-distribution or in normal distribution? What can you conclude about the extreme events of our bitcoin data?
 
-Both tails deviate significantly from the blue line, indicating that Bitcoin is prone to extreme events. However, the t-distribution exhibits greater tail density compared to the normal distribution, suggesting that the t-distribution allows for a higher likelihood of unexpected, extreme events.
+Both tails deviate significantly from the blue line, indicating that Bitcoin is prone to extreme events.
+However, the t-distribution exhibits greater tail density compared to the normal distribution, suggesting that the t-distribution allows for a higher likelihood of unexpected, extreme events.
 
 ### Part 2: Financial time series, heteroscedasticity and the random walk hypothesis
 
@@ -987,7 +988,7 @@ precipitation_level_150 <- 150
 # Probability that precipitation > threshold
 p_exceed <- mean(rain_df$Precipitation > threshold) 
 # Conditional probability above threshold for >150 mm
-p_conditional <- 1 - pgpd(precipitation_level_150 - threshold, scale = scale, shape = shape) 
+p_conditional <- 1 - pgpd(precipitation_level_150 - threshold, xi = shape, beta = scale) 
 # Unconditional probability
 prob_150mm <- p_exceed * p_conditional
 
@@ -1060,7 +1061,10 @@ This can be illustrated for example by heatwaves in Summer.
 
 ```{r}
 # Decluster the summer temperature data based on the chosen threshold
-declustered_data <- decluster(summer_df$AvgTemperature, threshold = threshold_temp)
+declustered_data <- extRemes::decluster(summer_df$AvgTemperature, threshold = threshold_temp,
+                              method = "runs", 
+                              r = 3, 
+                              clusterfun = "max")
 
 # Convert declustered data back into a data frame with corresponding dates for plotting
 declustered_df <- data.frame(Date = summer_df$Date, AvgTemperature = declustered_data)
