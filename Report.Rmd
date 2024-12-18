@@ -1536,82 +1536,32 @@ Hence, it is more suitable for risk-averse investors who wants to be prepared fo
 ### 3. Models Comparison
 
 ```{r}
-confidence_levels <- c(0.95, 0.99, 0.999)
-
-gev_var_es <- function(location, scale, shape, confidence_level) {
-
-  VaR <- location + (scale / shape) * ((-log(1 - confidence_level))^(-shape) - 1)
-  
-  ES <- location + (scale / shape) * (
-    (1 / (1 - shape)) * ((-log(1 - confidence_level))^(-shape)) - 1
-  )
-  
-  return(list(VaR = -VaR, ES = -ES))  
-}
-
-gev_params <- gev_fit_weekly$results$par
-location <- gev_params["location"]
-scale <- gev_params["scale"]
-shape <- gev_params["shape"]
-
-gev_results <- data.frame(
-  Confidence_Level = confidence_levels,
-  GEV_VaR = sapply(confidence_levels, function(cl) gev_var_es(location, scale, shape, cl)$VaR),
-  GEV_ES = sapply(confidence_levels, function(cl) gev_var_es(location, scale, shape, cl)$ES)
+data <- data.frame(
+  Confidence_Level = rep(c("95%", "99.5%"), each = 4),
+  Metric = c("BM_Par_VaR", "BM_Par_ES", "POT_Par_VaR", "POT_Par_ES", 
+             "BM_Par_VaR", "BM_Par_ES", "POT_Par_VaR", "POT_Par_ES"),
+  Value = c(0.049, -0.871, -2.163, -2.932, 
+            0.402, -0.483, -3.963, -5.163)
 )
 
-N <- length(raw_data$Return)
-N_exc <- sum(-raw_data$Return > u)  
-beta <- as.numeric(gpd_fit$par.ests["beta"])
-xi <- as.numeric(gpd_fit$par.ests["xi"])
+data <- data %>% filter(!is.na(Value))
 
-VaR_POT <- sapply(confidence_levels, function(p) {
-  u + (beta / xi) * (((N_exc / (N * (1 - p)))^xi - 1))
-})
-
-ES_POT <- sapply(1:length(confidence_levels), function(i) {
-  p <- confidence_levels[i]
-  VaR_p <- u + (beta / xi) * (((N_exc / (N * (1 - p)))^xi - 1))
-  (VaR_p / (1 - xi)) + ((beta - xi * u) / (1 - xi))
-})
-
-pot_results <- data.frame(
-  Confidence_Level = confidence_levels,
-  POT_VaR = -VaR_POT,  
-  POT_ES = -ES_POT     
-)
-
-comparison <- gev_results %>%
-  left_join(pot_results, by = "Confidence_Level") %>%
-  rename(
-    GEV_VaR = GEV_VaR,
-    GEV_ES = GEV_ES,
-    POT_VaR = POT_VaR,
-    POT_ES = POT_ES
-  )
-
-comparison_long <- comparison %>%
-  pivot_longer(cols = -Confidence_Level, names_to = "Metric", values_to = "Value")
-
-ggplot(comparison_long, aes(x = factor(Confidence_Level), y = Value, fill = Metric)) +
+ggplot(data, aes(x = Confidence_Level, y = Value, fill = Metric)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(
-    title = "Comparison of VaR and ES for GEV and POT Models",
+    title = "Comparison of VaR and ES for Block Maxima and POT Models",
     x = "Confidence Level",
-    y = "Value",
-    fill = "Metric"
+    y = "Value"
   ) +
+  # Corrected color mapping
   scale_fill_manual(values = c(
-    "GEV_ES" = "#3E8853",
-    "GEV_VaR" = "#1CADE4",
-    "POT_ES" = "#27CED7",
-    "POT_VaR" = "#42BA97"
+    "BM_Par_VaR" = "deepskyblue",
+    "BM_Par_ES" = "forestgreen",
+    "POT_Par_VaR" = "seagreen3",
+    "POT_Par_ES" = "cyan3"
   )) +
-  theme_minimal()
-
-
-print("Comparison of VaR and ES between GEV and POT Models:")
-print(comparison)
+  theme_minimal() +
+  theme(text = element_text(size = 12))
 ```
 
 Looking at the results from the comparison between GEV and POT models' VaR and ES, it is clear that POT model captures more extreme losses than GEV, which may be useful for risk averse scenarios.
