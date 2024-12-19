@@ -22,7 +22,7 @@ library(nortest)
 library(MASS)
 library(stats)    
 library(fGarch)
-library(summarytools)
+#library(summarytools)
 library(visdat)
 library(DT)
 library(fpp3)
@@ -1538,10 +1538,10 @@ Hence, it is more suitable for risk-averse investors who wants to be prepared fo
 ```{r}
 data <- data.frame(
   Confidence_Level = rep(c("95%", "99.5%"), each = 4),
-  Metric = c("BM_Par_VaR", "BM_Par_ES", "POT_Par_VaR", "POT_Par_ES", 
-             "BM_Par_VaR", "BM_Par_ES", "POT_Par_VaR", "POT_Par_ES"),
-  Value = c(0.049, -0.871, -2.163, -2.932, 
-            0.402, -0.483, -3.963, -5.163)
+  Metric = c("BM_Hist_VaR", "BM_Hist_ES", "POT_Hist_VaR", "POT_Hist_ES", 
+             "BM_Hist_VaR", "BM_Hist_ES", "POT_Hist_VaR", "POT_Hist_ES"),
+  Value = c(0.612, -0.206, -6.175, -7.221, 
+            0.272, -0.504, -7.587, -7.736)
 )
 
 data <- data %>% filter(!is.na(Value))
@@ -1555,10 +1555,10 @@ ggplot(data, aes(x = Confidence_Level, y = Value, fill = Metric)) +
   ) +
   # Corrected color mapping
   scale_fill_manual(values = c(
-    "BM_Par_VaR" = "deepskyblue",
-    "BM_Par_ES" = "forestgreen",
-    "POT_Par_VaR" = "seagreen3",
-    "POT_Par_ES" = "cyan3"
+    "BM_Hist_VaR" = "deepskyblue",
+    "BM_Hist_ES" = "forestgreen",
+    "POT_Hist_VaR" = "seagreen3",
+    "POT_Hist_ES" = "cyan3"
   )) +
   theme_minimal() +
   theme(text = element_text(size = 12))
